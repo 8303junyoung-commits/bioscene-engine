@@ -14,7 +14,7 @@ export function sanitizedEndpoint(raw: string) {
 }
 
 function requestHeaders(room: RoomConfig, token: string, json = false) {
-  const headers: Record<string, string> = { Accept: 'application/json', 'X-BioScene-Schema': 'bioscene.scene.v0.11' }
+  const headers: Record<string, string> = { Accept: 'application/json', 'X-BioScene-Schema': 'bioscene.scene.v0.12' }
   if (json) headers['Content-Type'] = 'application/json'
   if (room.authMode === 'bearer' && token) headers.Authorization = `Bearer ${token}`
   if (room.authMode === 'api-key' && token) {

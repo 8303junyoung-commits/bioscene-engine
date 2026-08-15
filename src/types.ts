@@ -18,11 +18,28 @@ export type AbstractionLevel = 'icon' | 'cartoon' | 'domain' | 'structure'
 export type LayoutMode = 'single' | 'comparison' | 'multi_panel' | 'overview_inset'
 export type ObjectVisibility = 'visible' | 'hidden_by_scope' | 'manually_hidden' | 'collapsed'
 export type PositionMode = 'auto' | 'manual' | 'pinned'
+export type MoleculePrivacy = 'public' | 'private'
+export type MoleculeClass = 'protein' | 'antibody' | 'engineered_construct'
+export type StructuralTemplate = 'globular' | 'cytokine' | 'enzyme' | 'single_pass_receptor' | 'multi_pass_receptor' | 'gpcr' | 'ion_channel' | 'receptor_complex' | 'igg' | 'fab' | 'fab2' | 'bispecific_igg' | 'asymmetric_bispecific' | 'fc_fusion' | 'receptor_trap' | 'custom_construct'
+export type AnnotationSource = 'UniProt' | 'user' | 'inferred' | 'template'
+export type AnnotationConfidence = 'high' | 'medium' | 'low' | 'confirmed'
+export type DomainDisplayLevel = 'hidden' | 'simplified' | 'named' | 'functional' | 'full'
+export type FunctionalPortType = 'binding' | 'recruitment' | 'activation' | 'inhibition' | 'cleavage' | 'enzymatic' | 'phosphorylation' | 'transport' | 'translocation' | 'internalization' | 'signal_input' | 'signal_output' | 'membrane_anchor'
 
 export interface DomainDefinition {
   id: string
   label: string
   kind: DomainKind
+  start?: number
+  end?: number
+  function?: string
+  target?: string
+  role?: string
+  source?: AnnotationSource
+  functionSource?: AnnotationSource
+  targetSource?: AnnotationSource
+  confidence?: AnnotationConfidence
+  highlighted?: boolean
 }
 
 export interface SiteDefinition {
@@ -53,6 +70,39 @@ export interface PortDefinition {
   domainId?: string
   siteId?: string
   allowedInteractions: InteractionType[]
+  functionalType?: FunctionalPortType
+  targetHint?: string
+}
+
+export interface StructuralModel {
+  template: StructuralTemplate
+  templateSource: AnnotationSource
+  templateConfidence: AnnotationConfidence
+  displayLevel: DomainDisplayLevel
+  topology: {
+    signalPeptide: boolean
+    extracellular: boolean
+    transmembrane: boolean
+    cytoplasmic: boolean
+  }
+  domains: DomainDefinition[]
+}
+
+export interface MoleculeDefinition {
+  id: string
+  name: string
+  privacy: MoleculePrivacy
+  moleculeClass: MoleculeClass
+  geneName?: string
+  proteinName?: string
+  species?: string
+  uniprotAccession?: string
+  length?: number
+  subcellularLocations?: string[]
+  structuralModel: StructuralModel
+  lookupStatus: 'local' | 'suggested' | 'enriched' | 'failed'
+  lookupMessage?: string
+  updatedAt: string
 }
 
 export interface BioNodeFields {
@@ -77,6 +127,8 @@ export interface BioNodeFields {
   sceneType?: SceneType
   showCompartmentLabels?: boolean
   showOrganelles?: boolean
+  moleculeId?: string
+  structuralModel?: StructuralModel
 }
 
 export interface AssetReference {
@@ -207,7 +259,7 @@ export interface ParsedMechanism {
 }
 
 export interface SceneFile {
-  schema: 'bioscene.scene.v0.11'
+  schema: 'bioscene.scene.v0.12'
   title: string
   templateId?: SceneTemplateId
   createdAt: string
@@ -222,6 +274,8 @@ export interface SceneFile {
   visualizationProfile: VisualizationProfile
   views: SceneView[]
   activeViewId?: string
+  moleculeLibrary: MoleculeDefinition[]
+  customFunctions: string[]
 }
 
 export interface VisualizationProfile {

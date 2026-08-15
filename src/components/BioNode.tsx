@@ -3,6 +3,7 @@ import { Activity, CircleDot, Dna, MessageSquareText, ShieldCheck, Sparkles } fr
 import type { BioNode as BioNodeType, PortDefinition } from '../types'
 import { stateLabel } from '../biology'
 import { AssetImage } from './AssetImage'
+import { StructureGlyph } from './StructureGlyph'
 
 const positions: Record<PortDefinition['side'], Position> = {
   top: Position.Top,
@@ -50,7 +51,7 @@ export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
           title={`${port.semantic}: ${port.id} · ${port.allowedInteractions.join('/')}`}
         />
       ))}
-      <div className="bio-node-icon">{data.asset ? <AssetImage file={data.asset.file} alt="" fallback={fallbackIcon} /> : fallbackIcon}</div>
+      <div className="bio-node-icon structural-icon">{data.asset ? <AssetImage file={data.asset.file} alt="" fallback={<StructureGlyph data={data}/>} /> : ['receptor','ligand','antibody'].includes(data.kind) ? <StructureGlyph data={data}/> : fallbackIcon}</div>
       <div className="bio-node-copy">
         <strong>{data.label}</strong>
         {data.subtitle && <small>{data.subtitle}</small>}

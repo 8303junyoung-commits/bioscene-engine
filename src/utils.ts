@@ -1,7 +1,8 @@
-import type { ActivityEvent, AssetReference, BioEdge, BioNode, CollaborationComment, CollaborationState, Compartment, ConstraintMode, EvidenceAppraisal, InteractionType, LiteratureRecord, SceneFile, SceneTemplateId, SceneView, VisualizationProfile, TissueModule } from './types'
+import type { ActivityEvent, AssetReference, BioEdge, BioNode, CollaborationComment, CollaborationState, Compartment, ConstraintMode, EvidenceAppraisal, InteractionType, LiteratureRecord, MoleculeDefinition, SceneFile, SceneTemplateId, SceneView, VisualizationProfile, TissueModule } from './types'
 import { createBioData, stateAllowsCompartment, validateConnection } from './biology'
 import { markerForInteraction } from './visualGrammar'
 import { applyVisualizationProfile, defaultVisualizationProfile } from './sceneViews'
+import { defaultStructuralModel } from './molecules'
 
 const nodeWidth = 132
 const yBounds: Record<Compartment, [number, number]> = { extracellular: [48, 120], membrane: [180, 205], cytoplasm: [280, 365], nucleus: [390, 429], endosome: [305, 324], mitochondria: [405, 419] }
@@ -70,7 +71,7 @@ function isAssetReference(value: unknown): value is AssetReference {
 export function isSceneFile(value: unknown): value is SceneFile {
   if (!value || typeof value !== 'object') return false
   const scene = value as Partial<SceneFile>
-  if (scene.schema !== 'bioscene.scene.v0.11' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
+  if (scene.schema !== 'bioscene.scene.v0.12' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
   if (scene.constraintMode !== 'biological' && scene.constraintMode !== 'free') return false
   if (typeof scene.title !== 'string' || typeof scene.createdAt !== 'string') return false
   if (!['scientific-clean', 'journal-light', 'presentation-dark'].includes(scene.stylePreset ?? 'scientific-clean')) return false
@@ -79,6 +80,7 @@ export function isSceneFile(value: unknown): value is SceneFile {
   if (!Array.isArray(scene.literature) || !scene.literature.every(isLiteratureRecord)) return false
   if (!isCollaborationState(scene.collaboration)) return false
   if (!isVisualizationProfile(scene.visualizationProfile) || !Array.isArray(scene.views)) return false
+  if (!Array.isArray(scene.moleculeLibrary) || !scene.moleculeLibrary.every(isMoleculeDefinition) || !Array.isArray(scene.customFunctions) || !scene.customFunctions.every((item) => typeof item === 'string')) return false
   const validNodes = scene.nodes.every((node) => (
     node && typeof node.id === 'string' && typeof node.position?.x === 'number' && typeof node.position?.y === 'number'
     && typeof node.data?.label === 'string' && compartments.has(node.data.compartment)
@@ -93,6 +95,22 @@ export function isSceneFile(value: unknown): value is SceneFile {
     && (edge.data.evidence?.url === undefined || !!safeHttpUrl(edge.data.evidence.url))
   ))
   return validNodes && validEdges
+}
+
+function isMoleculeDefinition(value: unknown): value is MoleculeDefinition {
+  return isObject(value) && typeof value.id === 'string' && typeof value.name === 'string'
+    && ['public','private'].includes(String(value.privacy)) && ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass))
+    && isObject(value.structuralModel) && typeof value.structuralModel.template === 'string' && isObject(value.structuralModel.topology) && Array.isArray(value.structuralModel.domains)
+    && ['local','suggested','enriched','failed'].includes(String(value.lookupStatus)) && typeof value.updatedAt === 'string'
+}
+
+function sanitizeMolecule(value: unknown): MoleculeDefinition | undefined {
+  if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string') return undefined
+  const moleculeClass = ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass)) ? value.moleculeClass as MoleculeDefinition['moleculeClass'] : 'protein'
+  const fallback = defaultStructuralModel(value.id,value.name,moleculeClass)
+  const structuralModel = isObject(value.structuralModel) && Array.isArray(value.structuralModel.domains) ? value.structuralModel as unknown as MoleculeDefinition['structuralModel'] : fallback
+  const candidate: MoleculeDefinition = { ...value, id:value.id, name:value.name, privacy:value.privacy === 'private' ? 'private' : 'public', moleculeClass, structuralModel, lookupStatus:['local','suggested','enriched','failed'].includes(String(value.lookupStatus)) ? value.lookupStatus as MoleculeDefinition['lookupStatus'] : 'suggested', updatedAt:typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString() }
+  return isMoleculeDefinition(candidate) ? candidate : undefined
 }
 
 function isVisualizationProfile(value: unknown): value is VisualizationProfile {
@@ -151,7 +169,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
   if (!value || typeof value !== 'object') return undefined
   const legacy = value as Record<string, unknown>
   if (!Array.isArray(legacy.nodes) || !Array.isArray(legacy.edges)) return undefined
-  const schemas = new Set(Array.from({ length: 11 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
+  const schemas = new Set(Array.from({ length: 12 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
   if (typeof legacy.schema !== 'string' || !schemas.has(legacy.schema)) return undefined
   try {
     const nodes = legacy.nodes.map((entry) => {
@@ -187,8 +205,9 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
     const rawProfile = isVisualizationProfile(legacy.visualizationProfile) ? legacy.visualizationProfile : { ...defaultVisualizationProfile, layoutMode: templateId === 'receptor-blockade-comparison' ? 'comparison' as const : 'single' as const }
     const views = Array.isArray(legacy.views) ? legacy.views.map(sanitizeView).filter((view): view is SceneView => !!view) : []
     const scoped = applyVisualizationProfile(nodes, sanitizedEdges, rawProfile)
+    const moleculeLibrary = Array.isArray(legacy.moleculeLibrary) ? legacy.moleculeLibrary.map(sanitizeMolecule).filter((item): item is MoleculeDefinition => !!item) : []
     const scene: SceneFile = {
-      schema: 'bioscene.scene.v0.11',
+      schema: 'bioscene.scene.v0.12',
       title: typeof legacy.title === 'string' ? legacy.title : 'Imported BioScene',
       templateId,
       createdAt: typeof legacy.createdAt === 'string' ? legacy.createdAt : new Date().toISOString(),
@@ -207,6 +226,8 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       visualizationProfile: rawProfile,
       views,
       activeViewId: typeof legacy.activeViewId === 'string' ? legacy.activeViewId : undefined,
+      moleculeLibrary,
+      customFunctions: Array.isArray(legacy.customFunctions) ? legacy.customFunctions.filter((item): item is string => typeof item === 'string') : [],
     }
     return isSceneFile(scene) ? scene : undefined
   } catch {
@@ -217,7 +238,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
 export function parseTissueModule(value: unknown): TissueModule | undefined {
   if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string' || typeof value.description !== 'string' || typeof value.createdAt !== 'string' || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) return undefined
   const parsed = parseSceneFile({
-    schema: 'bioscene.scene.v0.11', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
+    schema: 'bioscene.scene.v0.12', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
     nodes: value.nodes, edges: value.edges, stylePreset: 'scientific-clean',
     review: { status: 'draft', reviewers: [], notes: '', updatedAt: value.createdAt },
     literature: Array.isArray(value.literature) ? value.literature : [], collaboration: { participants: [], comments: [], activity: [] },

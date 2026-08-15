@@ -15,7 +15,7 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, BookOpen, ClipboardCheck, Cloud, Download, FileJson, FlaskConical, LayoutTemplate, LockKeyhole, PanelsTopLeft, Plus, Redo2, RotateCcw, Save, Settings2, Sparkles, Undo2, UnlockKeyhole, Upload } from 'lucide-react'
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, BookOpen, ClipboardCheck, Cloud, Download, FileJson, FlaskConical, LayoutTemplate, LockKeyhole, PanelsTopLeft, Plus, Redo2, RotateCcw, Save, Settings2, Sparkles, Undo2, UnlockKeyhole, Upload, Workflow } from 'lucide-react'
 import { toPng, toSvg } from 'html-to-image'
 import PptxGenJS from 'pptxgenjs'
 import JSZip from 'jszip'
@@ -35,10 +35,11 @@ import { CollaborationPanel } from './components/CollaborationPanel'
 import { ContextHelp } from './components/ContextHelp'
 import { SceneSettingsPanel } from './components/SceneSettingsPanel'
 import { NewFigureDialog } from './components/NewFigureDialog'
+import { MoleculeSetupPanel } from './components/MoleculeSetupPanel'
 import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
-import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, ExportPreset, InteractionData, InteractionType, LiteratureRecord, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
+import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, ExportPreset, InteractionData, InteractionType, LiteratureRecord, MoleculeDefinition, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
 import { autoLayout, biologicalWarnings, constrainNode, downloadText, findAvailablePosition, parseSceneFile, parseTissueModule } from './utils'
 import { uid } from './identity'
 import { markerForInteraction } from './visualGrammar'
@@ -46,10 +47,11 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BackendConflictError, enrichLiterature, pullRoom, pushRoom, sanitizedEndpoint } from './backend'
 import { sendMagicLink, signOutSupabase, supabaseApiEndpoint, supabaseConfigured, watchSupabaseSession } from './supabaseClient'
 import { applyVisualizationProfile, captureView, defaultVisualizationProfile, restoreView, sceneTypeLabels } from './sceneViews'
+import { applyMoleculeToNode, createMolecule, portsFromDomains } from './molecules'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode }
 const edgeTypes = { interaction: InteractionEdge }
-const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.11'
+const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.12'
 const REVISION_KEY = 'bioscene.scene.revisions.v0.10'
 const MODULE_KEY = 'bioscene.tissue.modules.v0.10'
 const ROOM_KEY = 'bioscene.room.config.v0.10'
@@ -68,7 +70,7 @@ const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation'>, string> = {
 
 function readAutosavedScene() {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
+    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
     if (!raw) return undefined
     return parseSceneFile(JSON.parse(raw))
   } catch {
@@ -174,6 +176,8 @@ function AppCanvas() {
   const [visualizationProfile, setVisualizationProfile] = useState<VisualizationProfile>(() => autosavedScene?.visualizationProfile ?? { ...defaultVisualizationProfile })
   const [views, setViews] = useState<SceneView[]>(() => autosavedScene?.views ?? [])
   const [activeViewId, setActiveViewId] = useState<string | undefined>(() => autosavedScene?.activeViewId)
+  const [moleculeLibrary, setMoleculeLibrary] = useState<MoleculeDefinition[]>(() => autosavedScene?.moleculeLibrary ?? [])
+  const [customFunctions, setCustomFunctions] = useState<string[]>(() => autosavedScene?.customFunctions ?? [])
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
   const [revisions, setRevisions] = useState<SceneRevision[]>(readRevisions)
   const [showMechanismComposer, setShowMechanismComposer] = useState(false)
@@ -185,6 +189,8 @@ function AppCanvas() {
   const [showCollaborationPanel, setShowCollaborationPanel] = useState(false)
   const [showSceneSettings, setShowSceneSettings] = useState(false)
   const [showNewFigure, setShowNewFigure] = useState(false)
+  const [showMoleculeSetup, setShowMoleculeSetup] = useState(false)
+  const [setupMoleculeId, setSetupMoleculeId] = useState<string>()
   const [isSyncing, setIsSyncing] = useState(false)
   const [enrichingLiteratureId, setEnrichingLiteratureId] = useState<string>()
   const [selectedNodeId, setSelectedNodeId] = useState<string>()
@@ -204,10 +210,10 @@ function AppCanvas() {
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
   const targetPanel = selectedNode?.data.panelId ?? (nodes.some((node) => node.data.panelId === 'treated') ? 'treated' : 'single')
   const currentScene = useMemo<SceneFile>(() => ({
-    schema: 'bioscene.scene.v0.11', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
+    schema: 'bioscene.scene.v0.12', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
     constraintMode: mode, nodes, edges, mechanism, stylePreset, review, literature, collaboration,
-    visualizationProfile, views, activeViewId,
-  }), [activeViewId, collaboration, edges, literature, mechanism, mode, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile])
+    visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions,
+  }), [activeViewId, collaboration, customFunctions, edges, literature, mechanism, mode, moleculeLibrary, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -243,7 +249,7 @@ function AppCanvas() {
   }, [])
 
   const applySceneState = useCallback((scene: SceneFile) => {
-    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
+    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setMoleculeLibrary(scene.moleculeLibrary); setCustomFunctions(scene.customFunctions); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .1, duration: 350 }))
   }, [])
 
@@ -359,6 +365,34 @@ function AppCanvas() {
     if (!selectedNodeId) return
     setNodes((current) => current.map((node) => node.id === selectedNodeId ? { ...node, data: { ...node.data, asset: undefined } } : node))
     setNotice('Visual asset detached; semantic object preserved')
+  }, [selectedNodeId])
+
+  const openMoleculeBuilder = useCallback((node?: BioNodeType) => {
+    const target = node ?? selectedNode
+    if (target && !['cell','annotation','signal','transcription'].includes(target.data.kind)) {
+      const existing = moleculeLibrary.find((item) => item.id === target.data.moleculeId || item.name.toLowerCase() === target.data.label.toLowerCase())
+      if (existing) setSetupMoleculeId(existing.id)
+      else {
+        const created = { ...createMolecule(target.data.label, target.data.kind === 'antibody' && /slc|custom|bispecific/i.test(target.data.label) ? 'private' : 'public'), geneName: target.data.target }
+        setMoleculeLibrary((items) => [...items, created]); setSetupMoleculeId(created.id)
+      }
+    } else setSetupMoleculeId(undefined)
+    setShowMoleculeSetup(true)
+  }, [moleculeLibrary, selectedNode])
+
+  const applyMoleculeStructure = useCallback((molecule: MoleculeDefinition) => {
+    if (!selectedNodeId) return
+    const functionalPorts = portsFromDomains(molecule)
+    setNodes((items) => items.map((node) => {
+      if (node.id === selectedNodeId) return applyMoleculeToNode(node, molecule)
+      const matching = functionalPorts.filter((port) => port.targetHint && [node.data.label,node.data.target].filter(Boolean).some((value) => String(value).toLowerCase().replace(/[^a-z0-9]/g,'') === port.targetHint!.toLowerCase().replace(/[^a-z0-9]/g,'')))
+      if (!matching.length) return node
+      const counterpartPorts = matching.map((port) => ({ ...port, id: `port:${node.id}:${port.id.split(':').at(-2)}:target`, role: 'target' as const, side: port.side === 'left' ? 'right' as const : 'left' as const, domainId: node.data.structuralModel?.domains.find((domain) => domain.kind === 'extracellular')?.id ?? node.data.domains[0]?.id, targetHint: molecule.name }))
+      const existing = new Set(node.data.ports.map((port) => port.id))
+      return { ...node, data: { ...node.data, ports: [...node.data.ports, ...counterpartPorts.filter((port) => !existing.has(port.id))] } }
+    }))
+    setNotice(`${molecule.name} structure and functional ports applied`)
+    setShowMoleculeSetup(false)
   }, [selectedNodeId])
 
   const updateSelectedEdge = useCallback((interaction: InteractionType) => {
@@ -728,10 +762,11 @@ function AppCanvas() {
           <span className="brand-mark"><FlaskConical size={20} /></span>
           <span><strong>BioScene</strong><small>ENGINE</small></span>
         </div>
-        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.11 · Supabase Cloud</small></div>
+        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.12 · Supabase Cloud</small></div>
         <div className="top-actions">
           <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
           <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
+          <button className="ghost-button" data-help="그림에 사용할 protein과 proprietary construct의 topology, visual template, functional domains, targets와 자동 생성 port를 정의합니다. Private construct는 외부 데이터베이스로 전송하지 않습니다." onClick={() => openMoleculeBuilder()}><Workflow size={16}/> Molecule builder</button>
           <button className="ghost-button" data-help="기전 설명을 문장으로 입력하면 인식한 분자·세포·상호작용을 먼저 미리 보여주고, 확인 후 편집 가능한 장면으로 생성합니다. 생성하면 현재 장면과 근거·메모가 교체되므로 확인창이 표시됩니다." onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
           <button className="ghost-button icon-only" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
           <button className="ghost-button icon-only" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
@@ -758,6 +793,7 @@ function AppCanvas() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={(event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(undefined); setAlignmentNodeIds((ids) => event.shiftKey ? (ids.includes(node.id) ? ids.filter((id) => id !== node.id) : [...ids, node.id]) : [node.id]) }}
+            onNodeDoubleClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(undefined); openMoleculeBuilder(node) }}
             onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(undefined) }}
             onPaneClick={() => { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }}
             onNodeDragStop={(_, node) => handleNodeDragStop(node)}
@@ -809,6 +845,7 @@ function AppCanvas() {
           onDelete={deleteSelected}
           onBrowseAssets={() => setShowAssetBrowser(true)}
           onDetachAsset={detachAsset}
+          onEditStructure={() => openMoleculeBuilder(selectedNode)}
           constraintMode={mode}
         />
       </div>
@@ -821,6 +858,7 @@ function AppCanvas() {
       {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
       {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
       {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
+      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onApply={applyMoleculeStructure} onClose={() => setShowMoleculeSetup(false)}/>}
       <ContextHelp />
     </div>
   )

@@ -366,3 +366,40 @@ button { color: inherit; }
 .start-mode-grid svg { margin-bottom: auto; width: 27px; height: 27px; }
 .start-mode-grid strong { font-size: 14px; }.start-mode-grid small { color: #75867e; }
 @media (max-width: 900px) { .scene-settings-grid,.new-figure-options,.start-mode-grid { grid-template-columns: 1fr; }.scene-setting-form { grid-row: auto; } }
+
+/* Protein / Construct Setup */
+.structural-icon { width: 48px; height: 48px; margin: -8px 2px -8px -7px; }
+.structure-glyph { width: 100%; height: 100%; overflow: visible; }
+.structure-glyph text { fill: #61776e; font-size: 6px; font-weight: 800; }
+.structure-backbone,.domain-arm { fill: none; stroke: #72529a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.domain-tip { stroke: #fff; stroke-width: 1.5; }.tip-one { fill: #7955a5; }.tip-two { fill: #d58242; }.domain-fc { fill: #9b7ab8; }
+.membrane-line { fill: none; stroke: #82ad9d; stroke-width: 3; stroke-linecap: round; }
+.domain-tm { fill: #447d69; }.domain-ecd { fill: #91c5b1; stroke: #39715d; stroke-width: 1.4; }.domain-icd { fill: none; stroke: #446b96; stroke-width: 3; stroke-linecap: round; }
+.protein-blob { fill: #e8b95e; stroke: #a97920; stroke-width: 1.8; }.protein-fold { fill: none; stroke: #fff3cf; stroke-width: 2; stroke-linecap: round; }
+.bio-node:has(.structure-glyph) { min-width: 155px; }
+.structure-edit-button { border: 1px solid #90b8a8; border-radius: 8px; background: #edf7f2; color: #27644f; padding: 8px; font-size: 10px; font-weight: 750; cursor: pointer; }
+
+.molecule-setup-panel { width: min(1240px,97vw); height: min(860px,94vh); display: flex; flex-direction: column; overflow: hidden; border-radius: 18px; background: #f8fbf9; box-shadow: 0 24px 80px rgba(0,0,0,.3); }
+.molecule-setup-panel > header { display: flex; justify-content: space-between; align-items: flex-start; padding: 20px 24px 15px; border-bottom: 1px solid #d8e5df; }
+.molecule-setup-panel h2 { margin: 4px 0; font-size: 23px; }.molecule-setup-panel header p { margin: 0; color: #687970; font-size: 11px; }
+.molecule-workspace { min-height: 0; flex: 1; display: grid; grid-template-columns: 265px 1fr; }
+.molecule-library { min-height: 0; display: flex; flex-direction: column; padding: 16px; border-right: 1px solid #d8e5df; background: #f2f7f4; }
+.molecule-library label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; font-weight: 750; }.molecule-library textarea { resize: vertical; border: 1px solid #c5d7cf; border-radius: 8px; padding: 9px; font: inherit; }
+.molecule-library h3 { margin: 17px 0 8px; font-size: 12px; }.molecule-list { min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+.molecule-list > button { border: 1px solid #d7e3dd; border-radius: 9px; background: white; padding: 9px; text-align: left; cursor: pointer; }.molecule-list > button.selected { border-color: #3f8a6f; box-shadow: 0 0 0 2px rgba(63,138,111,.12); }
+.molecule-list span { display: flex; align-items: center; gap: 6px; }.molecule-list small { display: block; margin-top: 4px; color: #75867e; font-size: 9px; }
+.molecule-editor { min-width: 0; overflow: auto; padding: 18px 21px 22px; }
+.molecule-identity { display: grid; grid-template-columns: 76px 1fr auto; gap: 13px; align-items: center; border: 1px solid #d8e4de; border-radius: 12px; padding: 11px; background: white; }
+.molecule-preview { width: 70px; height: 64px; padding: 4px; border-radius: 9px; background: #f1f7f4; }.molecule-identity h3 { margin: 0; }.molecule-identity p { margin: 3px 0; color: #697a72; font-size: 10px; }
+.molecule-identity > button,.private-badge { border: 0; border-radius: 8px; padding: 8px 10px; display: flex; align-items: center; gap: 5px; background: #285f50; color: white; font-size: 10px; font-weight: 750; }.private-badge { background: #e9f2ee; color: #346454; }
+.lookup-status { font-size: 9px; color: #6e8178; }.status-failed { color: #aa4c3d; }
+.identity-fields { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; margin: 12px 0; }.identity-fields label,.domain-list label { display: flex; flex-direction: column; gap: 4px; color: #456157; font-size: 9px; font-weight: 750; }
+.identity-fields input,.identity-fields select,.domain-list input,.domain-list select { min-width: 0; border: 1px solid #c9d8d1; border-radius: 7px; background: white; padding: 7px; font: inherit; }.identity-fields input:read-only { background: #f2f5f3; }
+.topology-row { display: flex; align-items: center; gap: 14px; padding: 9px 11px; border-radius: 9px; background: #eaf3ef; font-size: 10px; }.topology-row > span { font-weight: 850; }.topology-row label { display: flex; gap: 4px; align-items: center; text-transform: capitalize; }
+.domain-builder { margin-top: 13px; }.domain-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }.domain-heading h3 { margin: 0; font-size: 13px; }.domain-heading small { color: #75867e; font-size: 9px; }.domain-heading button { border: 0; border-radius: 7px; background: #e5f1ec; color: #286550; padding: 7px 9px; display: flex; gap: 4px; cursor: pointer; }
+.domain-list { display: flex; flex-direction: column; gap: 7px; }.domain-list article { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.1fr 1.1fr 55px 30px; gap: 7px; align-items: end; border: 1px solid #dae5e0; border-radius: 9px; padding: 9px; background: white; }
+.domain-id { min-width: 0; align-self: center; }.domain-id code,.domain-id span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.domain-id code { font-size: 8px; color: #356451; }.domain-id span { margin-top: 3px; color: #819089; font-size: 8px; }
+.domain-list label:nth-last-of-type(1) { align-items: center; }.domain-list label input[type=checkbox] { width: 18px; height: 18px; }
+.port-preview { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin: 12px 0; padding: 10px; border: 1px solid #d5e4dd; border-radius: 9px; background: #f1f7f4; }.port-preview strong { width: 100%; font-size: 10px; }.port-preview code { border-radius: 5px; background: white; padding: 4px 6px; color: #396655; font-size: 8px; }.port-preview small { color: #75867e; font-size: 9px; }
+.molecule-editor > footer { display: flex; justify-content: flex-end; }.molecule-editor > footer button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 1000px) { .molecule-workspace { grid-template-columns: 220px 1fr; }.domain-list article { grid-template-columns: repeat(2,1fr); }.identity-fields { grid-template-columns: repeat(2,1fr); } }

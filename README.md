@@ -27,7 +27,9 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Parent/child movement: moving the NK cell carries its internal objects
 - Inspector for labels, descriptions, compartments, and molecular state
 - Add/delete objects and interactions
-- Scene save/load in `bioscene.scene.v0.11` JSON, including visualization profiles, saved views, manual/pinned positions, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1`–`v0.10` scenes
+- Protein & Construct Setup with bulk project-library input, public/private separation, UniProt topology import, structural templates, functional domain editing, targets, highlights, and generated ports
+- Structural SVG rendering for soluble proteins, single-pass receptors, IgG and bispecific antibody constructs
+- Scene save/load in `bioscene.scene.v0.12` JSON, including molecule libraries, functional vocabularies, visualization profiles, saved views, manual/pinned positions, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1` through `v0.11` scenes
 - Debounced browser-local autosave and automatic restore
 - Strict scene-import validation and biological warning counting
 - State-aware compartment transitions in Biological Constraint mode
