@@ -32,7 +32,7 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Delete, duplicate, internal copy/paste, visibility, position locking, z-order controls, and global Undo/Redo keyboard workflows
 - Re-editable membrane paths with draggable/addable/removable control points, endpoint extension/trim, straightening, splitting, inside/outside flip, and anchored-receptor following
 - Add/delete objects and interactions
-- Protein & Construct Setup with bulk project-library input, public/private separation, UniProt topology import, structural templates, functional domain editing, targets, highlights, and generated ports
+- Protein & Construct Setup with a server-side UniProt proxy, human-reviewed candidate selection, accession lookup, progress/error/retry states, bulk lookup, offline cache, sequence + feature provenance, topology classification, editable structural previews, generated ports, and public/private separation
 - Structural SVG rendering for soluble proteins, single-pass receptors, IgG and bispecific antibody constructs
 - Scene save/load in `bioscene.scene.v0.13` JSON, including figure workspace geometry, biological membrane paths and receptor anchors, molecule libraries, functional vocabularies, visualization profiles, saved views, manual/pinned positions, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1` through `v0.12` scenes
 - Debounced browser-local autosave and automatic restore

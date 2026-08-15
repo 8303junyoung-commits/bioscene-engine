@@ -481,6 +481,20 @@ function AppCanvas() {
     setShowMoleculeSetup(false)
   }, [selectedNodeId])
 
+  const addMoleculeToScene = useCallback((molecule: MoleculeDefinition) => {
+    const kind: 'receptor' | 'antibody' | 'ligand' = molecule.moleculeClass === 'antibody' ? 'antibody' : molecule.structuralModel.topology.transmembrane ? 'receptor' : 'ligand'
+    const id = uid(kind)
+    const base: BioNodeType = { id, type:'bio', selected:true, position:findAvailablePosition(nodes,kind === 'receptor' ? 'membrane' : 'extracellular'), data:createBioData(kind,molecule.name,{panelId:'single',visibility:'visible',positionMode:'auto'}) }
+    let node = applyMoleculeToNode(base,molecule)
+    const membrane = kind === 'receptor' ? nodes.find((item)=>item.data.kind === 'membrane' && item.data.membrane) : undefined
+    if (membrane) {
+      const target = anchoredPosition(membrane,.5)
+      if (target) node = { ...node, position:{x:target.x-77.5,y:target.y-32}, data:{...node.data,compartment:'membrane',membraneAnchor:{membraneId:membrane.id,pathPosition:.5,orientation:'normal',angle:target.angle}} }
+    }
+    setNodes((items)=>[...items.map((item)=>item.id === membrane?.id && item.data.membrane ? {...item,selected:false,data:{...item.data,membrane:{...item.data.membrane,anchors:[...item.data.membrane.anchors.filter((record)=>record.objectId!==id),{objectId:id,pathPosition:.5,orientation:'normal' as const}]}}}:{...item,selected:false}),node])
+    setSelectedNodeId(id); setAlignmentNodeIds([id]); setSelectedEdgeId(undefined); setShowMoleculeSetup(false); setNotice(`${molecule.name} structural instance added${membrane?' and anchored to membrane':''}`)
+  },[nodes])
+
   const updateSelectedEdge = useCallback((interaction: InteractionType) => {
     const edge = edges.find((item) => item.id === selectedEdgeId)
     const source = nodes.find((node) => node.id === edge?.source)
@@ -1245,7 +1259,7 @@ function AppCanvas() {
       {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
       {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
       {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
-      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onApply={applyMoleculeStructure} onClose={() => setShowMoleculeSetup(false)}/>}
+      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onApply={applyMoleculeStructure} onAdd={addMoleculeToScene} onClose={() => setShowMoleculeSetup(false)}/>}
       {showWorkspaceSetup && <WorkspaceSetupPanel value={workspace} hasContent={nodes.length > 0} onSave={saveWorkspace} onFitContent={fitWorkspaceToContent} onClose={() => setShowWorkspaceSetup(false)} />}
       <ContextHelp />
     </div>

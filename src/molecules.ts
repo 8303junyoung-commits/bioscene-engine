@@ -46,9 +46,9 @@ export function suggestedTemplate(name: string, moleculeClass: MoleculeClass, ha
 export function defaultStructuralModel(id: string, name: string, moleculeClass: MoleculeClass, template?: StructuralTemplate): StructuralModel {
   const selected = template ?? suggestedTemplate(name, moleculeClass)
   const common = { template: selected, templateSource: 'inferred' as const, templateConfidence: 'low' as const, displayLevel: 'functional' as const }
-  if (selected === 'single_pass_receptor') return { ...common, topology: { signalPeptide: true, extracellular: true, transmembrane: true, cytoplasmic: true }, domains: [domain(id,'extracellular','Extracellular domain','extracellular'),domain(id,'transmembrane','Transmembrane region','transmembrane'),domain(id,'cytoplasmic','Cytoplasmic domain','intracellular')] }
+  if (selected === 'single_pass_receptor') return { ...common, classification: 'single_pass_receptor', visualScaling: 'schematic', modified: false, topology: { signalPeptide: true, extracellular: true, transmembrane: true, cytoplasmic: true }, domains: [domain(id,'extracellular','Extracellular domain','extracellular'),domain(id,'transmembrane','Transmembrane region','transmembrane'),domain(id,'cytoplasmic','Cytoplasmic domain','intracellular')] }
   if (selected === 'igg' || selected === 'bispecific_igg' || selected === 'asymmetric_bispecific') return { ...common, topology: { signalPeptide: true, extracellular: true, transmembrane: false, cytoplasmic: false }, domains: [domain(id,'Fab1','Fab 1','variable'),domain(id,'Fab2','Fab 2','variable'),domain(id,'Fc','Fc','constant')] }
-  return { ...common, topology: { signalPeptide: true, extracellular: true, transmembrane: false, cytoplasmic: false }, domains: [domain(id,'protein','Protein domain','functional')] }
+  return { ...common, classification: selected === 'cytokine' ? 'secreted_cytokine' : selected === 'enzyme' ? 'enzyme' : 'soluble', visualScaling: 'schematic', modified: false, topology: { signalPeptide: true, extracellular: true, transmembrane: false, cytoplasmic: false }, domains: [domain(id,'protein','Protein domain','functional')] }
 }
 
 export function createMolecule(name: string, privacy: MoleculeDefinition['privacy'] = 'public'): MoleculeDefinition {

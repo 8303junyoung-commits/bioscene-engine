@@ -5,6 +5,7 @@ const publishableKey = String(import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? '
 
 export const supabaseConfigured = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(supabaseUrl) && publishableKey.startsWith('sb_publishable_')
 export const supabaseApiEndpoint = supabaseConfigured ? `${supabaseUrl}/functions/v1/bioscene-api` : ''
+export const supabaseUniProtEndpoint = supabaseConfigured ? `${supabaseUrl}/functions/v1/bioscene-uniprot` : ''
 
 export const supabase = supabaseConfigured
   ? createClient(supabaseUrl, publishableKey, {

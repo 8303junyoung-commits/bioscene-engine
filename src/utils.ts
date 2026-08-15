@@ -103,7 +103,7 @@ function isMoleculeDefinition(value: unknown): value is MoleculeDefinition {
   return isObject(value) && typeof value.id === 'string' && typeof value.name === 'string'
     && ['public','private'].includes(String(value.privacy)) && ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass))
     && isObject(value.structuralModel) && typeof value.structuralModel.template === 'string' && isObject(value.structuralModel.topology) && Array.isArray(value.structuralModel.domains)
-    && ['local','suggested','enriched','failed'].includes(String(value.lookupStatus)) && typeof value.updatedAt === 'string'
+    && ['local','suggested','searching','selecting','enriched','failed'].includes(String(value.lookupStatus)) && typeof value.updatedAt === 'string'
 }
 
 function sanitizeMolecule(value: unknown): MoleculeDefinition | undefined {
@@ -111,7 +111,7 @@ function sanitizeMolecule(value: unknown): MoleculeDefinition | undefined {
   const moleculeClass = ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass)) ? value.moleculeClass as MoleculeDefinition['moleculeClass'] : 'protein'
   const fallback = defaultStructuralModel(value.id,value.name,moleculeClass)
   const structuralModel = isObject(value.structuralModel) && Array.isArray(value.structuralModel.domains) ? value.structuralModel as unknown as MoleculeDefinition['structuralModel'] : fallback
-  const candidate: MoleculeDefinition = { ...value, id:value.id, name:value.name, privacy:value.privacy === 'private' ? 'private' : 'public', moleculeClass, structuralModel, lookupStatus:['local','suggested','enriched','failed'].includes(String(value.lookupStatus)) ? value.lookupStatus as MoleculeDefinition['lookupStatus'] : 'suggested', updatedAt:typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString() }
+  const candidate: MoleculeDefinition = { ...value, id:value.id, name:value.name, privacy:value.privacy === 'private' ? 'private' : 'public', moleculeClass, structuralModel, lookupStatus:['local','suggested','searching','selecting','enriched','failed'].includes(String(value.lookupStatus)) ? value.lookupStatus as MoleculeDefinition['lookupStatus'] : 'suggested', updatedAt:typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString() }
   return isMoleculeDefinition(candidate) ? candidate : undefined
 }
 

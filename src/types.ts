@@ -20,6 +20,8 @@ export type ObjectVisibility = 'visible' | 'hidden_by_scope' | 'manually_hidden'
 export type PositionMode = 'auto' | 'manual' | 'pinned'
 export type MoleculePrivacy = 'public' | 'private'
 export type MoleculeClass = 'protein' | 'antibody' | 'engineered_construct'
+export type ProteinTopologyClass = 'soluble' | 'single_pass_receptor' | 'multi_pass_membrane' | 'secreted_cytokine' | 'enzyme' | 'unknown'
+export type ProteinVisualScaling = 'schematic' | 'sequence_length'
 export type StructuralTemplate = 'globular' | 'cytokine' | 'enzyme' | 'single_pass_receptor' | 'multi_pass_receptor' | 'gpcr' | 'ion_channel' | 'receptor_complex' | 'igg' | 'fab' | 'fab2' | 'bispecific_igg' | 'asymmetric_bispecific' | 'fc_fusion' | 'receptor_trap' | 'custom_construct'
 export type AnnotationSource = 'UniProt' | 'user' | 'inferred' | 'template'
 export type AnnotationConfidence = 'high' | 'medium' | 'low' | 'confirmed'
@@ -91,6 +93,17 @@ export interface StructuralModel {
     cytoplasmic: boolean
   }
   domains: DomainDefinition[]
+  classification?: ProteinTopologyClass
+  visualScaling?: ProteinVisualScaling
+  modified?: boolean
+}
+
+export interface UniProtFeatureRecord {
+  type: string
+  description?: string
+  start?: number
+  end?: number
+  source: 'UniProt'
 }
 
 export interface MoleculeDefinition {
@@ -103,9 +116,14 @@ export interface MoleculeDefinition {
   species?: string
   uniprotAccession?: string
   length?: number
+  sequence?: string
   subcellularLocations?: string[]
+  uniprotFeatures?: UniProtFeatureRecord[]
+  originalStructuralModel?: StructuralModel
+  uniprotFetchedAt?: string
+  uniprotCached?: boolean
   structuralModel: StructuralModel
-  lookupStatus: 'local' | 'suggested' | 'enriched' | 'failed'
+  lookupStatus: 'local' | 'suggested' | 'searching' | 'selecting' | 'enriched' | 'failed'
   lookupMessage?: string
   updatedAt: string
 }
