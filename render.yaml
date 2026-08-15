@@ -2,7 +2,7 @@ services:
   - type: web
     name: bioscene-engine
     runtime: static
-    buildCommand: npm install -g pnpm@11.19.0 && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm build
     staticPublishPath: ./dist
     envVars:
       - key: VITE_SUPABASE_URL
