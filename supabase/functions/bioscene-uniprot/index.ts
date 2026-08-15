@@ -1,6 +1,7 @@
 const upstream = 'https://rest.uniprot.org/uniprotkb'
 const allowedOrigins = new Set((Deno.env.get('BIOSCENE_ALLOWED_ORIGINS') ?? 'http://localhost:5173,http://127.0.0.1:4173,https://bioscene-engine.onrender.com').split(',').map((item) => item.trim()).filter(Boolean))
 const allowedOrganisms = new Set([9606, 10090, 10116, 9544])
+const publicGeneAliases: Record<string,string> = { IL18RB: 'IL18RAP' }
 const accessionPattern = /^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?$/i
 
 function cors(request: Request) {
@@ -46,8 +47,8 @@ Deno.serve(async (request) => {
       const organismId = Number(body.organismId)
       if (!/^[\p{L}\p{N} ._()'/-]{1,100}$/u.test(query) || !allowedOrganisms.has(organismId)) return reply(request, 400, { error: 'Invalid UniProt search query', code: 'not-found' })
       const safe = query.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim()
-      const exact = safe.replace(/[^A-Za-z0-9_-]/g, '')
-      const expression = exact ? `(reviewed:true) AND (organism_id:${organismId}) AND ((gene_exact:${exact}) OR (gene:${exact}) OR (${safe}))` : `(reviewed:true) AND (organism_id:${organismId}) AND (${safe})`
+      const exact = safe.replace(/[^A-Za-z0-9_-]/g, ''); const canonical = publicGeneAliases[exact.toUpperCase()] ?? exact
+      const expression = canonical ? `(reviewed:true) AND (organism_id:${organismId}) AND ((gene_exact:${canonical}) OR (gene:${canonical}) OR (${canonical}))` : `(reviewed:true) AND (organism_id:${organismId}) AND (${safe})`
       const url = new URL(`${upstream}/search`); url.searchParams.set('query', expression); url.searchParams.set('format', 'json'); url.searchParams.set('size', '8')
       const result = await fetchUniProt(url)
       if (!result.data) return reply(request, result.status, { error: result.error, code: result.code })
@@ -62,3 +63,4 @@ Deno.serve(async (request) => {
     return reply(request, 503, { error: 'UniProt service is temporarily unavailable.', code: 'service' })
   }
 })
+
