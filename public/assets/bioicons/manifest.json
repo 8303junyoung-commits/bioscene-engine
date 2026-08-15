@@ -1,0 +1,50 @@
+{
+  "schema": "bioscene.asset-manifest.v0.1",
+  "collection": "Bioicons / Servier starter primitives",
+  "retrievedAt": "2026-08-15",
+  "platform": "https://bioicons.com/",
+  "license": {
+    "spdx": "CC-BY-3.0",
+    "name": "Creative Commons Attribution 3.0 Unported",
+    "url": "https://creativecommons.org/licenses/by/3.0/"
+  },
+  "attribution": "Medical illustrations by Servier, via Bioicons, licensed under CC BY 3.0.",
+  "assets": [
+    {
+      "id": "servier:antibody",
+      "file": "servier-antibody.svg",
+      "semanticRole": "antibody",
+      "creator": "Servier Medical Art",
+      "sourceUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/refs/heads/main/static/icons/cc-by-3.0/Blood_Immunology/Servier/antibody.svg",
+      "bytes": 988,
+      "sha256": "a2b5250fdf91cad1c6a959ba76c6bad92edc71c7b8e3aea83e015f6102c43974"
+    },
+    {
+      "id": "servier:receptor-membrane-2",
+      "file": "servier-receptor-membrane.svg",
+      "semanticRole": "membrane_receptor",
+      "creator": "Servier Medical Art",
+      "sourceUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/refs/heads/main/static/icons/cc-by-3.0/Receptors_channels/Servier/receptor-membrane-2.svg",
+      "bytes": 170523,
+      "sha256": "f25d5b83302f066748339d8f54263464278c624dd69c4ca5ff15f609cb598497"
+    },
+    {
+      "id": "servier:nucleus",
+      "file": "servier-nucleus.svg",
+      "semanticRole": "nucleus",
+      "creator": "Servier Medical Art",
+      "sourceUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/refs/heads/main/static/icons/cc-by-3.0/Intracellular_components/Servier/nucleus.svg",
+      "bytes": 321740,
+      "sha256": "7e7364f834a0f6c897aeee09198eb7e72d39e689df458ce7faf442a356b5774e"
+    },
+    {
+      "id": "servier:protein-1",
+      "file": "servier-protein.svg",
+      "semanticRole": "generic_protein",
+      "creator": "Servier Medical Art",
+      "sourceUrl": "https://raw.githubusercontent.com/duerrsimon/bioicons/refs/heads/main/static/icons/cc-by-3.0/Intracellular_components/Servier/protein-1.svg",
+      "bytes": 4253,
+      "sha256": "2efeb8d4b36d0a6f024f5ed79ba2fbc6f6bdb30ff86252932d69a25cbad54907"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.pnpm-deploy-store/
+.tool-cache/
+work/
+*.zip
+supabase/.branches/
+supabase/.temp/

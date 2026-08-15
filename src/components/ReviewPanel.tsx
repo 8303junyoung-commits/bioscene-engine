@@ -1,0 +1,10 @@
+import { CheckCircle2, ClipboardCheck, PackageCheck, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import type { ReviewMetadata } from '../types'
+
+export function ReviewPanel({ value, onChange, onClose, onExportPackage }: { value: ReviewMetadata; onChange: (value: ReviewMetadata) => void; onClose: () => void; onExportPackage: () => void }) {
+  const [reviewersDraft, setReviewersDraft] = useState(value.reviewers.join(', '))
+  useEffect(() => setReviewersDraft(value.reviewers.join(', ')), [value.reviewers])
+  const update = (patch: Partial<ReviewMetadata>) => onChange({ ...value, ...patch, updatedAt: new Date().toISOString() })
+  return <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Scene review"><section className="review-panel"><header><div><span className="eyebrow">SCIENTIFIC REVIEW</span><h2><ClipboardCheck size={21} /> Review metadata</h2><p>Keep approval state and scientific review notes with the scene.</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="review-form"><label>Status<select value={value.status} onChange={(e) => update({ status: e.target.value as ReviewMetadata['status'] })}><option value="draft">Draft</option><option value="in-review">In review</option><option value="approved">Approved</option></select></label><label>Reviewers<input value={reviewersDraft} onChange={(e) => setReviewersDraft(e.target.value)} onBlur={() => update({ reviewers: reviewersDraft.split(',').map((item) => item.trim()).filter(Boolean) })} placeholder="Name, team, or function" /></label><label>Scientific review notes<textarea rows={7} value={value.notes} onChange={(e) => update({ notes: e.target.value })} placeholder="Assumptions, evidence gaps, requested changes…" /></label><div className="review-updated"><CheckCircle2 size={15} /> Updated {new Date(value.updatedAt).toLocaleString()}</div><button className="review-package-button" onClick={onExportPackage}><PackageCheck size={16} /> Export review package (.zip)</button></div></section></div>
+}
