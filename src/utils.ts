@@ -182,7 +182,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       const matchingState = defaults.states.find((state) => state.id === node.data.state || state.label === node.data.state)
       const visibility = ['visible','hidden_by_scope','manually_hidden','collapsed'].includes(String(node.data.visibility)) ? node.data.visibility : 'visible'
       const positionMode = ['auto','manual','pinned'].includes(String(node.data.positionMode)) ? node.data.positionMode : 'auto'
-      return { ...node, hidden: visibility !== 'visible', deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode } }
+      return { ...node, hidden: visibility !== 'visible', draggable: node.data.locked ? false : node.draggable, deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode, locked: node.data.locked === true } }
     })
     const byId = new Map(nodes.map((node) => [node.id, node]))
     const edges = (legacy.edges as BioEdge[]).map((edge) => {

@@ -29,7 +29,7 @@ export type WorkspacePreset = 'presentation_16_9' | 'presentation_4_3' | 'square
 export type WorkspaceBackground = 'white' | 'transparent' | 'light_gray' | 'custom'
 export type MembraneBoundaryType = 'plasma_membrane' | 'basement_membrane' | 'epithelial_barrier' | 'endothelial_barrier' | 'custom'
 export type MembraneStyle = 'simple' | 'standard' | 'detailed'
-export type DrawingTool = 'select' | 'freehand_membrane' | 'straight_membrane'
+export type DrawingTool = 'select' | 'pan' | 'freehand_membrane' | 'straight_membrane' | 'place_cell' | 'place_receptor' | 'place_antibody' | 'place_ligand' | 'place_annotation'
 
 export interface DomainDefinition {
   id: string
@@ -136,6 +136,7 @@ export interface BioNodeFields {
   structuralModel?: StructuralModel
   membrane?: MembraneDefinition
   membraneAnchor?: MembraneProteinAnchor
+  locked?: boolean
 }
 
 export interface AssetReference {

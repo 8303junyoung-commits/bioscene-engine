@@ -1,10 +1,15 @@
-import type { NodeProps } from '@xyflow/react'
+import { NodeResizer, NodeToolbar, type NodeProps } from '@xyflow/react'
+import { Copy, Trash2 } from 'lucide-react'
 import type { BioNode } from '../types'
 
-export function CellNode({ data, selected }: NodeProps<BioNode>) {
+const action = (id: string, name: string) => window.dispatchEvent(new CustomEvent('bioscene:object-action', { detail: { id, action: name } }))
+
+export function CellNode({ id, data, selected }: NodeProps<BioNode>) {
   const panelLabel = data.panelId === 'untreated' ? 'UNTREATED' : data.panelId === 'treated' ? 'TREATED' : data.panelId === 'tissue' ? 'TISSUE' : 'MECHANISM'
   return (
     <div className={`cell-node scene-${data.sceneType ?? 'full_signaling'} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${selected ? 'is-selected' : ''}`}>
+      <NodeResizer isVisible={selected && !data.locked} minWidth={420} minHeight={300} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
+      <NodeToolbar isVisible={selected} className="selection-mini-toolbar" data-export-exclude="true"><button onClick={() => action(id, 'duplicate')}><Copy size={13}/> Duplicate</button><button className="danger" onClick={() => action(id, 'delete')}><Trash2 size={13}/> Delete</button></NodeToolbar>
       <span className={`panel-label panel-${data.panelId ?? 'single'}`}>{panelLabel}</span>
       <div className="cell-label">
         <span className="cell-dot" />

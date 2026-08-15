@@ -1,5 +1,5 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { Activity, CircleDot, Dna, MessageSquareText, ShieldCheck, Sparkles } from 'lucide-react'
+import { Handle, NodeResizer, NodeToolbar, Position, type NodeProps } from '@xyflow/react'
+import { Activity, CircleDot, Copy, Dna, Image, MessageSquareText, Pencil, ShieldCheck, Sparkles, Trash2 } from 'lucide-react'
 import type { BioNode as BioNodeType, PortDefinition } from '../types'
 import { stateLabel } from '../biology'
 import { AssetImage } from './AssetImage'
@@ -34,13 +34,20 @@ function AntibodyGlyph() {
 
 const portHelp = (port: PortDefinition) => `${port.role === 'source' ? '이 포트에서 다른 개체의 호환 포트로 드래그하면 상호작용 선을 만듭니다.' : '다른 개체의 호환 포트를 이곳으로 드래그하면 상호작용 선을 만듭니다.'} ${port.semantic} 계열 포트이며 허용 관계는 ${port.allowedInteractions.join(', ')}입니다.`
 
-export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
+const action = (id: string, name: string) => window.dispatchEvent(new CustomEvent('bioscene:object-action', { detail: { id, action: name } }))
+
+export function BioNode({ id, data, selected }: NodeProps<BioNodeType>) {
   const Icon = icons[data.kind]
   const isAntibody = data.kind === 'antibody'
   const fallbackIcon = isAntibody ? <AntibodyGlyph /> : <Icon size={19} strokeWidth={1.8} />
 
   return (
     <div className={`bio-node bio-${data.kind} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${data.membraneAnchor ? 'is-membrane-anchored' : ''} ${selected ? 'is-selected' : ''}`} style={data.membraneAnchor ? { transform: `rotate(${data.membraneAnchor.angle}deg)` } : undefined}>
+      <NodeResizer isVisible={selected && !data.locked} minWidth={90} minHeight={46} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
+      <NodeToolbar isVisible={selected} className="selection-mini-toolbar" data-export-exclude="true">
+        {['receptor','ligand','antibody'].includes(data.kind) && <button onClick={() => action(id, 'edit')}><Pencil size={13}/> Structure</button>}
+        <button onClick={() => action(id, 'asset')}><Image size={13}/> Asset</button><button onClick={() => action(id, 'duplicate')}><Copy size={13}/> Duplicate</button><button className="danger" onClick={() => action(id, 'delete')}><Trash2 size={13}/> Delete</button>
+      </NodeToolbar>
       {data.ports.map((port) => (
         <Handle
           key={port.id}

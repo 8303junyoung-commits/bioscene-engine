@@ -40,6 +40,9 @@ import { MoleculeSetupPanel } from './components/MoleculeSetupPanel'
 import { MembraneNode } from './components/MembraneNode'
 import { WorkspaceSetupPanel } from './components/WorkspaceSetupPanel'
 import { BlankQuickStart } from './components/BlankQuickStart'
+import { EditorToolbar } from './components/EditorToolbar'
+import { LayersPanel } from './components/LayersPanel'
+import { ObjectContextMenu, type ContextTarget } from './components/ObjectContextMenu'
 import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
@@ -216,6 +219,11 @@ function AppCanvas() {
   const [showWorkspaceSetup, setShowWorkspaceSetup] = useState(false)
   const [drawingTool, setDrawingTool] = useState<DrawingTool>('select')
   const [draftMembrane, setDraftMembrane] = useState<{ flow: MembranePoint[]; screen: MembranePoint[] }>()
+  const [continuousTool, setContinuousTool] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(true)
+  const [contextTarget, setContextTarget] = useState<ContextTarget>()
+  const [autosaveStatus, setAutosaveStatus] = useState<'saving' | 'saved'>('saved')
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
   const [revisions, setRevisions] = useState<SceneRevision[]>(readRevisions)
   const [showMechanismComposer, setShowMechanismComposer] = useState(false)
@@ -243,19 +251,23 @@ function AppCanvas() {
   const redoStack = useRef<SceneFile[]>([])
   const lastHistoryScene = useRef<string | undefined>(undefined)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const editorClipboard = useRef<{ nodes: BioNodeType[]; edges: BioEdge[] } | undefined>(undefined)
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
   const targetPanel = selectedNode?.data.panelId ?? (nodes.some((node) => node.data.panelId === 'treated') ? 'treated' : 'single')
+  const documentNodes = useMemo(() => nodes.map((node) => ({ ...node, selected: undefined })), [nodes])
+  const documentEdges = useMemo(() => edges.map((edge) => ({ ...edge, selected: undefined })), [edges])
   const currentScene = useMemo<SceneFile>(() => ({
     schema: 'bioscene.scene.v0.13', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
-    constraintMode: mode, nodes, edges, mechanism, stylePreset, review, literature, collaboration,
+    constraintMode: mode, nodes: documentNodes, edges: documentEdges, mechanism, stylePreset, review, literature, collaboration,
     visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions, workspace,
-  }), [activeViewId, collaboration, customFunctions, edges, literature, mechanism, mode, moleculeLibrary, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
+  }), [activeViewId, collaboration, customFunctions, documentEdges, documentNodes, literature, mechanism, mode, moleculeLibrary, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
 
   useEffect(() => {
+    setAutosaveStatus('saving')
     const timer = window.setTimeout(() => {
-      try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(currentScene)) } catch { setNotice('Autosave stopped: storage is full. Save JSON now.') }
+      try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(currentScene)); setAutosaveStatus('saved') } catch { setNotice('Autosave stopped: storage is full. Save JSON now.') }
     }, 250)
     return () => window.clearTimeout(timer)
   }, [currentScene])
@@ -311,11 +323,6 @@ function AppCanvas() {
     const scene = redoStack.current.pop(); if (!scene) return
     undoStack.current.push(currentScene); lastHistoryScene.current = JSON.stringify(scene); applySceneState(scene); setHistoryVersion((value) => value + 1); setNotice('Redo applied')
   }, [applySceneState, currentScene])
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => { if (!(event.ctrlKey || event.metaKey)) return; if (event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() } else if (event.key.toLowerCase() === 'y') { event.preventDefault(); redo() } }
-    window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler)
-  }, [redo, undo])
-
   const onNodesChange = useCallback((changes: NodeChange<BioNodeType>[]) => {
     setNodes((current) => applyNodeChanges(changes, current))
   }, [])
@@ -344,6 +351,41 @@ function AppCanvas() {
     setNotice(`${interaction} interaction created`)
   }, [mode, nodes])
 
+  const selectObject = useCallback((id: string, kind: 'node' | 'edge' = 'node', additive = false) => {
+    setContextTarget(undefined)
+    if (kind === 'edge') {
+      setSelectedEdgeId(id); setSelectedNodeId(undefined); setAlignmentNodeIds([id])
+      setEdges((items) => items.map((edge) => ({ ...edge, selected: edge.id === id })))
+      setNodes((items) => items.map((node) => ({ ...node, selected: false })))
+      return
+    }
+    setSelectedNodeId(id); setSelectedEdgeId(undefined)
+    setAlignmentNodeIds((current) => additive ? (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]) : [id])
+    setNodes((items) => items.map((node) => ({ ...node, selected: additive ? (node.id === id ? !node.selected : node.selected) : node.id === id })))
+    setEdges((items) => items.map((edge) => ({ ...edge, selected: false })))
+  }, [])
+
+  const placeNodeAt = useCallback((kind: 'receptor' | 'antibody' | 'ligand', position: { x: number; y: number }) => {
+    const id = uid(kind)
+    const node: BioNodeType = { id, type: 'bio', position, selected: true, data: createBioData(kind, defaultLabels[kind], { panelId: 'single', visibility: 'visible', positionMode: 'manual' }) }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice(`${defaultLabels[kind]} created. Drag to move; double-click to edit.`)
+    if (!continuousTool) setDrawingTool('select')
+  }, [continuousTool, selectObject])
+
+  const placeCellAt = useCallback((position: { x: number; y: number }) => {
+    const id = uid('cell')
+    const node: BioNodeType = { id, type: 'cell', position, selected: true, style: { width: 540, height: 380 }, data: createBioData('cell', 'Cell', { panelId: 'single', visibility: 'visible', positionMode: 'manual', sceneType: 'full_signaling' }) }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice('Cell created. Resize it with the selection handles.')
+    if (!continuousTool) setDrawingTool('select')
+  }, [continuousTool, selectObject])
+
+  const placeCalloutAt = useCallback((position: { x: number; y: number }) => {
+    const id = uid('callout')
+    const node: BioNodeType = { id, type: 'annotation', position, selected: true, style: { width: 230, height: 100 }, data: createBioData('annotation', 'Key finding', { panelId: 'single', visibility: 'visible', positionMode: 'manual' }) }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice('Text callout created. Type its content in the Inspector.')
+    if (!continuousTool) setDrawingTool('select')
+  }, [continuousTool, selectObject])
+
   const addBiologicalNode = useCallback((kind: Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>) => {
     const defaults = semanticDefaults[kind]
     const label = defaultLabels[kind]
@@ -356,10 +398,10 @@ function AppCanvas() {
       id: uid(kind),
       type: 'bio',
       ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}),
-      position: findAvailablePosition(nodes, defaults.compartment, targetCell?.id),
+      position: findAvailablePosition(nodes, defaults.compartment, targetCell?.id), selected: true,
       data: createBioData(kind, label, { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }),
     }
-    setNodes((current) => [...current, node])
+    setNodes((current) => [...current.map((item) => ({ ...item, selected: false })), node])
     setSelectedNodeId(node.id)
     setSelectedEdgeId(undefined)
     setNotice(`${label} added to ${targetCell?.data.panelId ?? 'free canvas'} · ${defaults.compartment}`)
@@ -367,8 +409,8 @@ function AppCanvas() {
 
   const addCallout = useCallback(() => {
     const targetCell = selectedNode?.data.kind === 'cell' ? selectedNode : nodes.find((item) => item.id === selectedNode?.parentId) ?? nodes.find((item) => item.data.kind === 'cell')
-    const node: BioNodeType = { id: uid('callout'), type: 'annotation', ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}), position: targetCell ? { x: 56, y: 420 } : { x: 320, y: 180 }, data: createBioData('annotation', 'Key finding', { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }) }
-    setNodes((items) => [...items, node]); setSelectedNodeId(node.id); setAlignmentNodeIds([node.id]); setNotice('Scientific callout added')
+    const node: BioNodeType = { id: uid('callout'), type: 'annotation', selected: true, ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}), position: targetCell ? { x: 56, y: 420 } : { x: 320, y: 180 }, data: createBioData('annotation', 'Key finding', { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }) }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); setSelectedNodeId(node.id); setAlignmentNodeIds([node.id]); setNotice('Scientific callout added')
   }, [nodes, selectedNode])
 
   const updateSelectedNode = useCallback((patch: BioNodePatch) => {
@@ -460,15 +502,187 @@ function AppCanvas() {
   }, [selectedEdgeId])
 
   const deleteSelected = useCallback(() => {
-    const selected = nodes.find((node) => node.id === selectedNodeId)
-    if (selectedNodeId && selected?.data.kind !== 'cell') {
-      setNodes((current) => current.filter((node) => node.id !== selectedNodeId).map((node) => selected?.data.kind === 'membrane' && node.data.membraneAnchor?.membraneId === selectedNodeId ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
-      setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId))
+    const nodeIds = new Set(alignmentNodeIds.filter((id) => nodes.some((node) => node.id === id)))
+    if (selectedNodeId) nodeIds.add(selectedNodeId)
+    if (nodeIds.size) {
+      const selectedItems = nodes.filter((node) => nodeIds.has(node.id))
+      const selectedMembranes = selectedItems.filter((node) => node.data.kind === 'membrane')
+      let deleteAnchored = false
+      for (const membraneNode of selectedMembranes) {
+        const anchored = nodes.filter((node) => node.data.membraneAnchor?.membraneId === membraneNode.id)
+        if (anchored.length) {
+          const choice = window.prompt(`This membrane has ${anchored.length} anchored object(s).\nDETACH = 막만 삭제하고 개체 보존\nALL = 막과 고정 개체 모두 삭제\nCANCEL = 취소`, 'DETACH')?.trim().toUpperCase()
+          if (!choice || choice === 'CANCEL') return
+          if (choice !== 'DETACH' && choice !== 'ALL') { setNotice('Delete cancelled: enter DETACH, ALL, or CANCEL.'); return }
+          deleteAnchored = choice === 'ALL'
+          if (deleteAnchored) anchored.forEach((node) => nodeIds.add(node.id))
+        }
+      }
+      for (const cell of selectedItems.filter((node) => node.data.kind === 'cell')) nodes.filter((node) => node.parentId === cell.id).forEach((node) => nodeIds.add(node.id))
+      setNodes((current) => current.filter((node) => !nodeIds.has(node.id)).map((node) => selectedMembranes.some((membrane) => node.data.membraneAnchor?.membraneId === membrane.id) ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
+      setEdges((current) => current.filter((edge) => !nodeIds.has(edge.source) && !nodeIds.has(edge.target)))
+      setNotice(`${nodeIds.size} object(s) deleted`)
+    } else if (selectedEdgeId) {
+      setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId)); setNotice('Interaction deleted')
     }
-    if (selectedEdgeId) setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId))
-    setSelectedNodeId(undefined)
-    setSelectedEdgeId(undefined)
-  }, [nodes, selectedEdgeId, selectedNodeId])
+    setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]); setContextTarget(undefined)
+  }, [alignmentNodeIds, nodes, selectedEdgeId, selectedNodeId])
+
+  const copySelected = useCallback(() => {
+    const ids = new Set(alignmentNodeIds.filter((id) => nodes.some((node) => node.id === id)))
+    if (selectedNodeId) ids.add(selectedNodeId)
+    if (!ids.size) return
+    const copiedNodes = nodes.filter((node) => ids.has(node.id))
+    const copiedEdges = edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target))
+    editorClipboard.current = { nodes: structuredClone(copiedNodes), edges: structuredClone(copiedEdges) }
+    setNotice(`${copiedNodes.length} object(s) copied`)
+  }, [alignmentNodeIds, edges, nodes, selectedNodeId])
+
+  const pasteObjects = useCallback(() => {
+    const copied = editorClipboard.current
+    if (!copied?.nodes.length) return
+    const map = new Map(copied.nodes.map((node) => [node.id, uid(node.data.kind)]))
+    const nextNodes = copied.nodes.map((node) => {
+      const id = map.get(node.id)!
+      const membrane = node.data.membrane ? { ...structuredClone(node.data.membrane), id, anchors: [] } : undefined
+      const anchor = node.data.membraneAnchor && map.has(node.data.membraneAnchor.membraneId) ? { ...node.data.membraneAnchor, membraneId: map.get(node.data.membraneAnchor.membraneId)! } : undefined
+      return { ...structuredClone(node), id, parentId: node.parentId ? map.get(node.parentId) : undefined, position: { x: node.position.x + 32, y: node.position.y + 32 }, selected: true, data: { ...structuredClone(node.data), membrane, membraneAnchor: anchor } }
+    })
+    const nextEdges = copied.edges.map((edge) => ({ ...structuredClone(edge), id: uid('edge'), source: map.get(edge.source)!, target: map.get(edge.target)!, selected: false }))
+    setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), ...nextNodes]); setEdges((items) => [...items, ...nextEdges])
+    const ids = nextNodes.map((node) => node.id); setAlignmentNodeIds(ids); setSelectedNodeId(ids[0]); setSelectedEdgeId(undefined); setNotice(`${ids.length} object(s) pasted`)
+  }, [])
+
+  const duplicateSelected = useCallback(() => { copySelected(); queueMicrotask(pasteObjects) }, [copySelected, pasteObjects])
+
+  const toggleObjectVisibility = useCallback((id: string) => setNodes((items) => items.map((node) => node.id === id ? { ...node, hidden: !node.hidden, data: { ...node.data, visibility: node.hidden ? 'visible' : 'manually_hidden' } } : node)), [])
+  const toggleObjectLock = useCallback((id: string) => setNodes((items) => items.map((node) => node.id === id ? { ...node, draggable: !!node.data.locked, data: { ...node.data, locked: !node.data.locked, positionMode: node.data.locked ? 'manual' : 'pinned' } } : node)), [])
+
+  const membraneAction = useCallback((id: string, actionName: string, detail: Record<string, unknown> = {}) => {
+    const membraneNode = nodes.find((node) => node.id === id && node.data.membrane)
+    if (!membraneNode?.data.membrane) return
+    if (actionName === 'edit') { selectObject(id); setNotice('Path edit: drag points, Alt+click a point to delete, double-click the line to add a point.'); return }
+    if (actionName === 'flip') { setNodes((items) => items.map((node) => node.id === id ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, sideA: node.data.membrane!.sideB, sideB: node.data.membrane!.sideA } } } : node)); setNotice('Membrane inside/outside flipped'); return }
+    if (actionName === 'move-point' || actionName === 'add-point' || actionName === 'remove-point' || actionName === 'straighten') {
+      let path = [...membraneNode.data.membrane.path]
+      if (actionName === 'move-point') path[Number(detail.index)] = detail.point as MembranePoint
+      if (actionName === 'remove-point' && path.length > 2) path.splice(Number(detail.index), 1)
+      if (actionName === 'add-point') {
+        const point = detail.point as MembranePoint; let index = 1; let distance = Infinity
+        for (let i = 0; i < path.length - 1; i++) { const mid = { x: (path[i].x + path[i + 1].x) / 2, y: (path[i].y + path[i + 1].y) / 2 }; const next = Math.hypot(point.x - mid.x, point.y - mid.y); if (next < distance) { distance = next; index = i + 1 } }
+        path.splice(index, 0, point)
+      }
+      if (actionName === 'straighten') path = [path[0], path.at(-1)!]
+      setNodes((items) => {
+        const changed = items.map((node) => node.id === id ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, path } } } : node)
+        const nextMembrane = changed.find((node) => node.id === id)!
+        return repositionMembraneAnchors(changed, nextMembrane)
+      })
+    }
+  }, [nodes, selectObject])
+
+  const deleteObjectById = useCallback((id: string) => {
+    const target = nodes.find((node) => node.id === id)
+    if (!target) return
+    const ids = new Set([id])
+    if (target.data.kind === 'cell') nodes.filter((node) => node.parentId === id).forEach((node) => ids.add(node.id))
+    if (target.data.kind === 'membrane') {
+      const anchored = nodes.filter((node) => node.data.membraneAnchor?.membraneId === id)
+      if (anchored.length) {
+        const choice = window.prompt(`This membrane has ${anchored.length} anchored object(s).\nDETACH = 막만 삭제하고 개체 보존\nALL = 모두 삭제\nCANCEL = 취소`, 'DETACH')?.trim().toUpperCase()
+        if (!choice || choice === 'CANCEL') return
+        if (choice === 'ALL') anchored.forEach((node) => ids.add(node.id))
+        else if (choice !== 'DETACH') return
+      }
+    }
+    setNodes((items) => items.filter((node) => !ids.has(node.id)).map((node) => node.data.membraneAnchor?.membraneId === id ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
+    setEdges((items) => items.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)))
+    setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]); setNotice(`${target.data.label} deleted`)
+  }, [nodes])
+
+  const duplicateObjectById = useCallback((id: string) => {
+    const source = nodes.find((node) => node.id === id)
+    if (!source) return
+    const nextId = uid(source.data.kind)
+    const membrane = source.data.membrane ? { ...structuredClone(source.data.membrane), id: nextId, anchors: [] } : undefined
+    const clone: BioNodeType = { ...structuredClone(source), id: nextId, parentId: source.parentId, position: { x: source.position.x + 32, y: source.position.y + 32 }, selected: true, data: { ...structuredClone(source.data), membrane, membraneAnchor: undefined } }
+    setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), clone]); setSelectedNodeId(nextId); setSelectedEdgeId(undefined); setAlignmentNodeIds([nextId]); setNotice(`${source.data.label} duplicated`)
+  }, [nodes])
+
+  const splitMembrane = useCallback((id: string) => {
+    const source = nodes.find((node) => node.id === id && node.data.membrane)
+    if (!source?.data.membrane || source.data.membrane.path.length < 3) { setNotice('Split requires a membrane with at least three path points.'); return }
+    const middle = Math.floor(source.data.membrane.path.length / 2); const secondId = uid('membrane')
+    const firstPath = source.data.membrane.path.slice(0, middle + 1); const secondPath = source.data.membrane.path.slice(middle)
+    const firstAnchors = source.data.membrane.anchors.filter((anchor) => anchor.pathPosition <= .5).map((anchor) => ({ ...anchor, pathPosition: anchor.pathPosition * 2 }))
+    const secondAnchors = source.data.membrane.anchors.filter((anchor) => anchor.pathPosition > .5).map((anchor) => ({ ...anchor, pathPosition: (anchor.pathPosition - .5) * 2 }))
+    const first = { ...source, data: { ...source.data, membrane: { ...source.data.membrane, path: firstPath, anchors: firstAnchors } } }
+    const second: BioNodeType = { ...structuredClone(source), id: secondId, position: { x: source.position.x + 12, y: source.position.y + 12 }, selected: true, data: { ...structuredClone(source.data), label: `${source.data.label} 2`, membrane: { ...structuredClone(source.data.membrane), id: secondId, name: `${source.data.membrane.name} 2`, path: secondPath, anchors: secondAnchors } } }
+    setNodes((items) => {
+      const changed = items.map((node) => {
+        if (node.id === id) return first
+        const anchor = node.data.membraneAnchor
+        if (!anchor || anchor.membraneId !== id) return { ...node, selected: false }
+        return anchor.pathPosition <= .5 ? { ...node, data: { ...node.data, membraneAnchor: { ...anchor, pathPosition: anchor.pathPosition * 2 } } } : { ...node, data: { ...node.data, membraneAnchor: { ...anchor, membraneId: secondId, pathPosition: (anchor.pathPosition - .5) * 2 } } }
+      })
+      return repositionMembraneAnchors(repositionMembraneAnchors([...changed, second], first), second)
+    })
+    setSelectedNodeId(secondId); setAlignmentNodeIds([secondId]); setNotice('Membrane split into two editable objects')
+  }, [nodes])
+
+  const handleObjectAction = useCallback((id: string, actionName: string, detail: Record<string, unknown> = {}) => {
+    const node = nodes.find((item) => item.id === id)
+    if (!node) return
+    if (['move-point','add-point','remove-point','straighten','flip'].includes(actionName)) { membraneAction(id, actionName, detail); return }
+    if (actionName === 'split') { splitMembrane(id); return }
+    if (actionName === 'delete') { deleteObjectById(id); return }
+    if (actionName === 'duplicate') { duplicateObjectById(id); return }
+    if (actionName === 'lock') { toggleObjectLock(id); return }
+    if (actionName === 'hide') { toggleObjectVisibility(id); setContextTarget(undefined); return }
+    if (actionName === 'front' || actionName === 'back') { setNodes((items) => items.map((item) => item.id === id ? { ...item, zIndex: actionName === 'front' ? 100 : -1 } : item)); setContextTarget(undefined); return }
+    selectObject(id)
+    if (actionName === 'asset') setShowAssetBrowser(true)
+    else if (actionName === 'edit' && node.data.kind === 'membrane') membraneAction(id, 'edit')
+    else if (actionName === 'edit') openMoleculeBuilder(node)
+    setContextTarget(undefined)
+  }, [deleteObjectById, duplicateObjectById, membraneAction, nodes, openMoleculeBuilder, selectObject, splitMembrane, toggleObjectLock, toggleObjectVisibility])
+
+  const handleContextAction = useCallback((actionName: string) => {
+    if (!contextTarget) return
+    if (contextTarget.kind === 'edge') {
+      const edge = edges.find((item) => item.id === contextTarget.id)
+      if (actionName === 'delete') setEdges((items) => items.filter((item) => item.id !== contextTarget.id))
+      else if (actionName === 'duplicate' && edge) setEdges((items) => [...items, { ...structuredClone(edge), id: uid('edge'), selected: false }])
+      else selectObject(contextTarget.id, 'edge')
+      setContextTarget(undefined); return
+    }
+    handleObjectAction(contextTarget.id, actionName)
+  }, [contextTarget, edges, handleObjectAction, selectObject])
+
+  useEffect(() => {
+    const objectAction = (event: Event) => { const detail = (event as CustomEvent<{ id: string; action: string } & Record<string, unknown>>).detail; handleObjectAction(detail.id, detail.action, detail) }
+    window.addEventListener('bioscene:object-action', objectAction)
+    return () => window.removeEventListener('bioscene:object-action', objectAction)
+  }, [handleObjectAction])
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null
+      const typing = !!target?.closest('input,textarea,select,[contenteditable="true"]')
+      if (event.key === 'Escape') { setDraftMembrane(undefined); setDrawingTool('select'); setContextTarget(undefined); setNotice('Select mode'); return }
+      if (typing) return
+      const key = event.key.toLowerCase(); const command = event.ctrlKey || event.metaKey
+      if (command && key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return }
+      if (command && key === 'y') { event.preventDefault(); redo(); return }
+      if (command && key === 'c') { event.preventDefault(); copySelected(); return }
+      if (command && key === 'v') { event.preventDefault(); pasteObjects(); return }
+      if (command && key === 'd') { event.preventDefault(); duplicateSelected(); return }
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected(); return }
+      const shortcuts: Partial<Record<string, DrawingTool>> = { v: 'select', h: 'pan', m: 'freehand_membrane', c: 'place_cell', p: 'place_receptor', a: 'place_antibody', l: 'place_ligand', t: 'place_annotation' }
+      if (shortcuts[key]) { event.preventDefault(); setDrawingTool(shortcuts[key]!); setNotice(`${shortcuts[key]!.replaceAll('_', ' ')} mode`) }
+    }
+    window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler)
+  }, [copySelected, deleteSelected, duplicateSelected, pasteObjects, redo, undo])
 
   const changeVisualizationProfile = useCallback((profile: VisualizationProfile) => {
     const scoped = applyVisualizationProfile(nodes, edges, profile)
@@ -559,7 +773,7 @@ function AppCanvas() {
   }, [nodes, workspace])
 
   const startDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (drawingTool === 'select' || !instanceRef.current) return
+    if (!['freehand_membrane','straight_membrane'].includes(drawingTool) || !instanceRef.current) return
     if ((event.target as HTMLElement).closest('.react-flow__panel,.react-flow__controls,.react-flow__minimap,.blank-quick-start')) return
     const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
     const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
@@ -568,7 +782,7 @@ function AppCanvas() {
   }, [drawingTool])
 
   const continueDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (!draftMembrane || !instanceRef.current || drawingTool === 'select') return
+    if (!draftMembrane || !instanceRef.current || !['freehand_membrane','straight_membrane'].includes(drawingTool)) return
     const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
     const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
     const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
@@ -581,7 +795,7 @@ function AppCanvas() {
   }, [draftMembrane, drawingTool])
 
   const finishDrawing = useCallback(() => {
-    if (!draftMembrane || drawingTool === 'select') return
+    if (!draftMembrane || !['freehand_membrane','straight_membrane'].includes(drawingTool)) return
     const raw = drawingTool === 'straight_membrane' && draftMembrane.flow.length > 1 ? [draftMembrane.flow[0], draftMembrane.flow[draftMembrane.flow.length - 1]] : draftMembrane.flow
     setDraftMembrane(undefined)
     if (raw.length < 2 || Math.hypot(raw.at(-1)!.x - raw[0].x, raw.at(-1)!.y - raw[0].y) < 20) return
@@ -591,9 +805,21 @@ function AppCanvas() {
     const path = smoothed.map((point) => ({ x: point.x - minX + pad, y: point.y - minY + pad }))
     const id = uid('membrane')
     const membrane: MembraneDefinition = { id, name: 'Plasma membrane', boundaryType: 'plasma_membrane', path, sideA: 'extracellular', sideB: 'cytoplasm', closed: false, style: 'standard', thickness: 12, smoothing: 65, anchors: [] }
-    const node: BioNodeType = { id, type: 'membrane', deletable: false, position: { x: minX - pad, y: minY - pad }, style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) }, data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }) }
-    setNodes((items) => [...items, node]); setSelectedNodeId(id); setAlignmentNodeIds([id]); setDrawingTool('select'); setNotice('Biological membrane created. Drag a receptor near it to snap.')
-  }, [draftMembrane, drawingTool])
+    const node: BioNodeType = { id, type: 'membrane', deletable: false, selected: true, position: { x: minX - pad, y: minY - pad }, style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) }, data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }) }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); setSelectedNodeId(id); setAlignmentNodeIds([id]); if (!continuousTool) setDrawingTool('select'); setNotice(`Biological membrane created${continuousTool ? '. Draw again or press ESC to exit.' : '. Drag a receptor near it to snap.'}`)
+  }, [continuousTool, draftMembrane, drawingTool])
+
+  const handlePaneClick = useCallback((event: React.MouseEvent) => {
+    setContextTarget(undefined)
+    if (!instanceRef.current) return
+    const position = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    if (drawingTool === 'place_cell') placeCellAt(position)
+    else if (drawingTool === 'place_receptor') placeNodeAt('receptor', position)
+    else if (drawingTool === 'place_antibody') placeNodeAt('antibody', position)
+    else if (drawingTool === 'place_ligand') placeNodeAt('ligand', position)
+    else if (drawingTool === 'place_annotation') placeCalloutAt(position)
+    else if (drawingTool === 'select') { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }
+  }, [drawingTool, placeCalloutAt, placeCellAt, placeNodeAt])
 
   const runLayout = useCallback(async () => {
     setIsLayingOut(true)
@@ -895,7 +1121,7 @@ function AppCanvas() {
           <span className="brand-mark"><FlaskConical size={20} /></span>
           <span><strong>BioScene</strong><small>ENGINE</small></span>
         </div>
-        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.13 · Supabase Cloud</small></div>
+        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.14 · Interactive editor</small></div>
         <div className="top-actions">
           <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
           <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
@@ -913,9 +1139,11 @@ function AppCanvas() {
         </div>
       </header>
 
+      <EditorToolbar tool={drawingTool} continuous={continuousTool} onTool={(tool) => { setDrawingTool(tool); setDraftMembrane(undefined); setNotice(`${tool.replaceAll('_', ' ')} mode`) }} onContinuous={() => setContinuousTool((value) => !value)} onShortcuts={() => setShowShortcuts(true)} />
+
       <div className="workspace">
         <Sidebar onAdd={addBiologicalNode} targetPanel={targetPanel} onBrowseAssets={() => setShowAssetBrowser(true)} onAddCallout={addCallout} onOpenModules={() => setShowModulePanel(true)} />
-        <main className={`canvas-wrap ${drawingTool !== 'select' ? 'is-drawing-membrane' : ''}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
+        <main className={`canvas-wrap tool-${drawingTool}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
           <ReactFlow<BioNodeType, BioEdge>
             nodes={nodes}
             edges={edges}
@@ -925,13 +1153,19 @@ function AppCanvas() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={(event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(undefined); setAlignmentNodeIds((ids) => event.shiftKey ? (ids.includes(node.id) ? ids.filter((id) => id !== node.id) : [...ids, node.id]) : [node.id]) }}
-            onNodeDoubleClick={(_, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(undefined); openMoleculeBuilder(node) }}
-            onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(undefined) }}
-            onPaneClick={() => { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }}
+            onNodeClick={(event, node) => selectObject(node.id, 'node', event.shiftKey)}
+            onNodeDoubleClick={(_, node) => { selectObject(node.id); if (node.data.kind === 'membrane') membraneAction(node.id, 'edit'); else openMoleculeBuilder(node) }}
+            onNodeContextMenu={(event, node) => { event.preventDefault(); selectObject(node.id); setContextTarget({ id: node.id, kind: 'node', x: event.clientX, y: event.clientY }) }}
+            onEdgeClick={(_, edge) => selectObject(edge.id, 'edge')}
+            onEdgeContextMenu={(event, edge) => { event.preventDefault(); selectObject(edge.id, 'edge'); setContextTarget({ id: edge.id, kind: 'edge', x: event.clientX, y: event.clientY }) }}
+            onSelectionChange={({ nodes: selectedNodes, edges: selectedEdges }) => { const ids = selectedNodes.map((node) => node.id); setAlignmentNodeIds(ids); setSelectedNodeId(ids[0]); setSelectedEdgeId(selectedEdges[0]?.id) }}
+            onPaneClick={handlePaneClick}
             onNodeDragStop={(_, node) => handleNodeDragStop(node)}
-            panOnDrag={drawingTool === 'select'}
+            panOnDrag={drawingTool === 'pan'}
+            selectionOnDrag={drawingTool === 'select'}
             nodesDraggable={drawingTool === 'select'}
+            nodesConnectable={drawingTool === 'select'}
+            elementsSelectable={drawingTool === 'select'}
             snapToGrid={workspace.snapToGrid}
             snapGrid={[workspace.gridSize, workspace.gridSize]}
             fitView
@@ -939,7 +1173,7 @@ function AppCanvas() {
             minZoom={0.45}
             maxZoom={1.8}
             multiSelectionKeyCode="Shift"
-            deleteKeyCode={['Backspace', 'Delete']}
+            deleteKeyCode={null}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#cbd8d1" />
             <ViewportPortal>
@@ -961,8 +1195,6 @@ function AppCanvas() {
               <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
               <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
               <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
-              <button className={drawingTool === 'freehand_membrane' ? 'tool-button active' : 'tool-button'} data-help="선택한 뒤 Workspace에서 마우스를 누른 채 원하는 경로를 그립니다. 손떨림을 단순화하고 부드러운 생물학적 막으로 생성합니다." onClick={() => setDrawingTool((tool) => tool === 'freehand_membrane' ? 'select' : 'freehand_membrane')}>Freehand membrane</button>
-              <button className={drawingTool === 'straight_membrane' ? 'tool-button active' : 'tool-button'} data-help="Workspace에서 시작점부터 끝점까지 드래그하면 직선 이중막을 만듭니다. 수용체 신호 그림의 단면에 적합합니다." onClick={() => setDrawingTool((tool) => tool === 'straight_membrane' ? 'select' : 'straight_membrane')}>Straight membrane</button>
               <button className="tool-button" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
               <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
             </Panel>
@@ -981,7 +1213,9 @@ function AppCanvas() {
             <Panel position="top-right" className="scene-badge template-picker" data-help="왼쪽은 현재 biology를 보는 Scene scope이고 오른쪽은 시작용 biology template입니다. Scene 변경은 개체를 삭제하지 않지만 template 변경은 확인 후 전체 장면을 교체합니다."><LayoutTemplate size={14}/><select aria-label="Scene type" value={visualizationProfile.sceneType} onChange={(event) => changeVisualizationProfile({ ...visualizationProfile, sceneType: event.target.value as VisualizationProfile['sceneType'] })}>{Object.entries(sceneTypeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
+            <Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>{drawingTool === 'select' ? 'Click or drag to select · Shift for multi-select' : drawingTool === 'pan' ? 'Drag canvas to move view · ESC to exit' : continuousTool ? 'Continuous creation · ESC to exit' : 'Create once · ESC to cancel'}</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>
           </ReactFlow>
+          <LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>
           {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
           {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
         </main>
@@ -1000,6 +1234,8 @@ function AppCanvas() {
           constraintMode={mode}
         />
       </div>
+      {contextTarget && <ObjectContextMenu target={contextTarget} isMembrane={nodes.find((node) => node.id === contextTarget.id)?.data.kind === 'membrane'} locked={!!nodes.find((node) => node.id === contextTarget.id)?.data.locked} onAction={handleContextAction}/>}
+      {showShortcuts && <div className="shortcut-overlay" onMouseDown={() => setShowShortcuts(false)}><section className="shortcut-card" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="eyebrow">EDITOR HELP</span><h2>Keyboard shortcuts</h2></div><button onClick={() => setShowShortcuts(false)}>×</button></header><div><kbd>V</kbd><span>Select</span><kbd>H</kbd><span>Pan</span><kbd>M</kbd><span>Membrane</span><kbd>C</kbd><span>Cell</span><kbd>P</kbd><span>Protein</span><kbd>A</kbd><span>Antibody</span><kbd>T</kbd><span>Text</span><kbd>Del</kbd><span>Delete selection</span><kbd>⌘/Ctrl Z</kbd><span>Undo</span><kbd>⇧ ⌘/Ctrl Z</kbd><span>Redo</span><kbd>⌘/Ctrl C · V</kbd><span>Copy · Paste</span><kbd>⌘/Ctrl D</kbd><span>Duplicate</span><kbd>Esc</kbd><span>Cancel · Select mode</span></div></section></div>}
       {showMechanismComposer && <MechanismComposer onClose={() => setShowMechanismComposer(false)} onGenerate={generateFromMechanism} />}
       {showAssetBrowser && <SmartAssetBrowser selectedNode={selectedNode} onClose={() => setShowAssetBrowser(false)} onAttach={attachAsset} />}
       {showProductionPanel && <ProductionPanel stylePreset={stylePreset} exportPreset={exportPreset} revisions={revisions} onStyle={setStylePreset} onExportPreset={setExportPreset} onSnapshot={createSnapshot} onRestore={restoreRevision} onExport={exportFigure} onClose={() => setShowProductionPanel(false)} />}

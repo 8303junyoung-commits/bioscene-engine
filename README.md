@@ -26,6 +26,11 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Semantic graph to editable single- or two-panel Scene generation
 - Parent/child movement: moving the NK cell carries its internal objects
 - Inspector for labels, descriptions, compartments, and molecular state
+- Persistent grouped editor toolbar with explicit Select, Pan, membrane, cell, molecule, and annotation modes
+- Single-use or pinned continuous creation, ESC cancellation, active-mode cursor/status, and autosave status
+- Marquee/Shift multi-selection, resize handles, object mini toolbars, right-click actions, and synchronized Layers/Inspector selection
+- Delete, duplicate, internal copy/paste, visibility, position locking, z-order controls, and global Undo/Redo keyboard workflows
+- Re-editable membrane paths with draggable/addable/removable control points, endpoint extension/trim, straightening, splitting, inside/outside flip, and anchored-receptor following
 - Add/delete objects and interactions
 - Protein & Construct Setup with bulk project-library input, public/private separation, UniProt topology import, structural templates, functional domain editing, targets, highlights, and generated ports
 - Structural SVG rendering for soluble proteins, single-pass receptors, IgG and bispecific antibody constructs

@@ -84,7 +84,7 @@ export function Inspector(props: InspectorProps) {
           <div className="semantic-card" data-help="PORT는 선을 연결할 수 있는 입력·출력 지점입니다. 포트 ID 뒤의 목록은 해당 포트에서 허용되는 상호작용 종류이며, 맞지 않는 연결은 Biological Constraint가 차단합니다."><span>PORTS</span>{selectedNode.data.ports.length ? selectedNode.data.ports.map((port) => <code key={port.id}>{port.id} · {port.allowedInteractions.join('/')}</code>) : <small>Container object</small>}</div>
           <div className="semantic-card" data-help="ANCHOR는 이 개체가 세포막·세포질·핵 등 어디에 고정되어야 하는지 나타냅니다. 자동 배치와 생물학적 위치 검증에 사용됩니다."><span>ANCHOR</span>{selectedNode.data.anchors.map((anchor) => <code key={anchor.id}>{anchor.type} · {anchor.compartment}</code>)}</div></>}
           {['receptor','ligand','antibody'].includes(selectedNode.data.kind) && <button className="structure-edit-button" data-help="Molecule Builder를 열어 visual template, topology, domain function, target, highlight와 자동 port를 편집합니다. 캔버스 개체를 더블클릭해도 열립니다." onClick={props.onEditStructure}>Edit protein structure</button>}
-          {selectedNode.data.kind !== 'cell' && <button className="danger-button" onClick={props.onDelete}>Delete object</button>}
+          <button className="danger-button" data-help="선택 개체를 삭제합니다. 세포는 자식 개체와 연결선도 함께 삭제되고, 고정 개체가 있는 막은 보존 또는 연쇄 삭제 방식을 먼저 묻습니다." onClick={props.onDelete}>Delete object</button>
         </div>
       )}
 
