@@ -15,7 +15,7 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, BookOpen, ClipboardCheck, Cloud, Download, FileJson, FlaskConical, LayoutTemplate, LockKeyhole, PanelsTopLeft, Redo2, RotateCcw, Save, Sparkles, Undo2, UnlockKeyhole, Upload } from 'lucide-react'
+import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, BookOpen, ClipboardCheck, Cloud, Download, FileJson, FlaskConical, LayoutTemplate, LockKeyhole, PanelsTopLeft, Plus, Redo2, RotateCcw, Save, Settings2, Sparkles, Undo2, UnlockKeyhole, Upload } from 'lucide-react'
 import { toPng, toSvg } from 'html-to-image'
 import PptxGenJS from 'pptxgenjs'
 import JSZip from 'jszip'
@@ -33,20 +33,23 @@ import { LiteraturePanel } from './components/LiteraturePanel'
 import { TissueModulePanel } from './components/TissueModulePanel'
 import { CollaborationPanel } from './components/CollaborationPanel'
 import { ContextHelp } from './components/ContextHelp'
+import { SceneSettingsPanel } from './components/SceneSettingsPanel'
+import { NewFigureDialog } from './components/NewFigureDialog'
 import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
-import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, ExportPreset, InteractionData, InteractionType, LiteratureRecord, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, StylePreset, TissueModule } from './types'
+import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, ExportPreset, InteractionData, InteractionType, LiteratureRecord, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
 import { autoLayout, biologicalWarnings, constrainNode, downloadText, findAvailablePosition, parseSceneFile, parseTissueModule } from './utils'
 import { uid } from './identity'
 import { markerForInteraction } from './visualGrammar'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { BackendConflictError, enrichLiterature, pullRoom, pushRoom, sanitizedEndpoint } from './backend'
 import { sendMagicLink, signOutSupabase, supabaseApiEndpoint, supabaseConfigured, watchSupabaseSession } from './supabaseClient'
+import { applyVisualizationProfile, captureView, defaultVisualizationProfile, restoreView, sceneTypeLabels } from './sceneViews'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode }
 const edgeTypes = { interaction: InteractionEdge }
-const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.10'
+const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.11'
 const REVISION_KEY = 'bioscene.scene.revisions.v0.10'
 const MODULE_KEY = 'bioscene.tissue.modules.v0.10'
 const ROOM_KEY = 'bioscene.room.config.v0.10'
@@ -65,7 +68,7 @@ const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation'>, string> = {
 
 function readAutosavedScene() {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
+    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
     if (!raw) return undefined
     return parseSceneFile(JSON.parse(raw))
   } catch {
@@ -168,6 +171,9 @@ function AppCanvas() {
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [modules, setModules] = useState<TissueModule[]>(readModules)
   const [stylePreset, setStylePreset] = useState<StylePreset>(() => autosavedScene?.stylePreset ?? 'scientific-clean')
+  const [visualizationProfile, setVisualizationProfile] = useState<VisualizationProfile>(() => autosavedScene?.visualizationProfile ?? { ...defaultVisualizationProfile })
+  const [views, setViews] = useState<SceneView[]>(() => autosavedScene?.views ?? [])
+  const [activeViewId, setActiveViewId] = useState<string | undefined>(() => autosavedScene?.activeViewId)
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
   const [revisions, setRevisions] = useState<SceneRevision[]>(readRevisions)
   const [showMechanismComposer, setShowMechanismComposer] = useState(false)
@@ -177,6 +183,8 @@ function AppCanvas() {
   const [showLiteraturePanel, setShowLiteraturePanel] = useState(false)
   const [showModulePanel, setShowModulePanel] = useState(false)
   const [showCollaborationPanel, setShowCollaborationPanel] = useState(false)
+  const [showSceneSettings, setShowSceneSettings] = useState(false)
+  const [showNewFigure, setShowNewFigure] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [enrichingLiteratureId, setEnrichingLiteratureId] = useState<string>()
   const [selectedNodeId, setSelectedNodeId] = useState<string>()
@@ -196,9 +204,10 @@ function AppCanvas() {
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
   const targetPanel = selectedNode?.data.panelId ?? (nodes.some((node) => node.data.panelId === 'treated') ? 'treated' : 'single')
   const currentScene = useMemo<SceneFile>(() => ({
-    schema: 'bioscene.scene.v0.10', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
+    schema: 'bioscene.scene.v0.11', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
     constraintMode: mode, nodes, edges, mechanism, stylePreset, review, literature, collaboration,
-  }), [collaboration, edges, literature, mechanism, mode, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId])
+    visualizationProfile, views, activeViewId,
+  }), [activeViewId, collaboration, edges, literature, mechanism, mode, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -234,7 +243,7 @@ function AppCanvas() {
   }, [])
 
   const applySceneState = useCallback((scene: SceneFile) => {
-    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
+    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .1, duration: 350 }))
   }, [])
 
@@ -299,25 +308,22 @@ function AppCanvas() {
       : nodes.find((item) => item.id === selectedNode?.parentId)
         ?? nodes.find((item) => item.data.panelId === 'treated' && item.data.kind === 'cell')
         ?? nodes.find((item) => item.data.kind === 'cell')
-    if (!targetCell) return
     const node: BioNodeType = {
       id: uid(kind),
       type: 'bio',
-      parentId: targetCell.id,
-      extent: 'parent',
-      position: findAvailablePosition(nodes, defaults.compartment, targetCell.id),
-      data: createBioData(kind, label, { panelId: targetCell.data.panelId }),
+      ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}),
+      position: findAvailablePosition(nodes, defaults.compartment, targetCell?.id),
+      data: createBioData(kind, label, { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }),
     }
     setNodes((current) => [...current, node])
     setSelectedNodeId(node.id)
     setSelectedEdgeId(undefined)
-    setNotice(`${label} added to ${targetCell.data.panelId ?? 'scene'} · ${defaults.compartment}`)
+    setNotice(`${label} added to ${targetCell?.data.panelId ?? 'free canvas'} · ${defaults.compartment}`)
   }, [nodes, selectedNode])
 
   const addCallout = useCallback(() => {
     const targetCell = selectedNode?.data.kind === 'cell' ? selectedNode : nodes.find((item) => item.id === selectedNode?.parentId) ?? nodes.find((item) => item.data.kind === 'cell')
-    if (!targetCell) return
-    const node: BioNodeType = { id: uid('callout'), type: 'annotation', parentId: targetCell.id, extent: 'parent', position: { x: 56, y: 420 }, data: createBioData('annotation', 'Key finding', { panelId: targetCell.data.panelId }) }
+    const node: BioNodeType = { id: uid('callout'), type: 'annotation', ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}), position: targetCell ? { x: 56, y: 420 } : { x: 320, y: 180 }, data: createBioData('annotation', 'Key finding', { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }) }
     setNodes((items) => [...items, node]); setSelectedNodeId(node.id); setAlignmentNodeIds([node.id]); setNotice('Scientific callout added')
   }, [nodes, selectedNode])
 
@@ -337,7 +343,7 @@ function AppCanvas() {
     }
     setNodes((current) => current.map((node) => {
       if (node.id !== selectedNodeId) return node
-      const next = { ...node, data: { ...node.data, ...normalized } }
+      const next = { ...node, hidden: normalized.visibility ? normalized.visibility !== 'visible' : node.hidden, data: { ...node.data, ...normalized } }
       return (normalized.compartment || normalized.state) && mode === 'biological' ? constrainNode(next, mode, current) : next
     }))
   }, [mode, selectedNode, selectedNodeId])
@@ -386,6 +392,46 @@ function AppCanvas() {
     setSelectedEdgeId(undefined)
   }, [nodes, selectedEdgeId, selectedNodeId])
 
+  const changeVisualizationProfile = useCallback((profile: VisualizationProfile) => {
+    const scoped = applyVisualizationProfile(nodes, edges, profile)
+    setVisualizationProfile(profile)
+    setNodes(scoped.nodes)
+    setEdges(scoped.edges)
+    setActiveViewId(undefined)
+    setNotice(`${sceneTypeLabels[profile.sceneType]} · detail ${profile.detailLevel}`)
+    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .12, duration: 350 }))
+  }, [edges, nodes])
+
+  const saveCurrentView = useCallback(() => {
+    const name = window.prompt('저장할 뷰 이름을 입력하세요.', `${sceneTypeLabels[visualizationProfile.sceneType]} view`)
+    if (!name?.trim()) return
+    const view = captureView(uid('view'), name.trim(), visualizationProfile, nodes)
+    setViews((items) => [...items, view])
+    setActiveViewId(view.id)
+    setNotice(`${view.name} view saved`)
+  }, [nodes, visualizationProfile])
+
+  const openSavedView = useCallback((view: SceneView) => {
+    const restored = restoreView(view, nodes, edges)
+    setVisualizationProfile(view.profile)
+    setNodes(restored.nodes)
+    setEdges(restored.edges)
+    setActiveViewId(view.id)
+    setNotice(`${view.name} view restored`)
+    setShowSceneSettings(false)
+    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .12, duration: 400 }))
+  }, [edges, nodes])
+
+  const createEmptyFigure = useCallback(() => {
+    if ((nodes.length || literature.length || review.notes || collaboration.comments.length) && !window.confirm('새 빈 장면을 만들까요? 현재 장면은 자동 저장 기록에서 교체됩니다. 먼저 Save JSON을 권장합니다.')) return
+    const profile = { ...visualizationProfile, sceneType: 'empty' as const, layoutMode: 'single' as const }
+    setNodes([]); setEdges([]); setVisualizationProfile(profile); setViews([]); setActiveViewId(undefined); setTemplateId(DEFAULT_TEMPLATE_ID); setSceneTitle('Untitled biological figure'); setSceneCreatedAt(new Date().toISOString()); setMechanism(undefined); setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() }); setLiterature([]); setCollaboration(emptyCollaboration()); setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setShowNewFigure(false); setNotice('Empty canvas ready')
+  }, [collaboration.comments.length, literature.length, nodes.length, review.notes, visualizationProfile])
+
+  const handleNodeDragStop = useCallback((node: BioNodeType) => {
+    setNodes((current) => current.map((item) => item.id === node.id ? { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' } } : item))
+  }, [mode])
+
   const runLayout = useCallback(async () => {
     setIsLayingOut(true)
     try {
@@ -400,8 +446,9 @@ function AppCanvas() {
   const resetScene = useCallback(() => {
     if (!window.confirm('Reset this scene? Current objects, literature links, review notes, and comments will be replaced.')) return
     const template = cloneTemplate(templateId)
-    setNodes(template.nodes)
-    setEdges(template.edges)
+    const scoped = applyVisualizationProfile(template.nodes, template.edges, visualizationProfile)
+    setNodes(scoped.nodes)
+    setEdges(scoped.edges)
     setMode('biological')
     setMechanism(undefined)
     setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
@@ -413,11 +460,12 @@ function AppCanvas() {
     setSelectedEdgeId(undefined)
     setNotice(`${template.title} template restored`)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 450 }))
-  }, [templateId])
+  }, [templateId, visualizationProfile])
 
   const loadTemplate = useCallback((nextTemplateId: SceneTemplateId) => {
     if (nextTemplateId === templateId || !window.confirm('Switch templates? Current objects, literature links, review notes, and comments will be replaced.')) return
     const template = cloneTemplate(nextTemplateId)
+    const scoped = applyVisualizationProfile(template.nodes, template.edges, visualizationProfile)
     setTemplateId(nextTemplateId)
     setSceneTitle(template.title)
     setSceneCreatedAt(new Date().toISOString())
@@ -425,20 +473,23 @@ function AppCanvas() {
     setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
     setLiterature([])
     setCollaboration(emptyCollaboration())
-    setNodes(template.nodes)
-    setEdges(template.edges)
+    setNodes(scoped.nodes)
+    setEdges(scoped.edges)
+    setViews([])
+    setActiveViewId(undefined)
     setMode('biological')
     setSelectedNodeId(undefined)
     setSelectedEdgeId(undefined)
     setNotice(`${template.title} template loaded`)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.08, duration: 500 }))
-  }, [templateId])
+  }, [templateId, visualizationProfile])
 
   const generateFromMechanism = useCallback((parsed: ParsedMechanism) => {
     if (!window.confirm('Generate a new mechanism scene? Current objects, literature links, review notes, and comments will be replaced.')) return
     const generated = sceneFromMechanism(parsed)
-    setNodes(generated.nodes)
-    setEdges(generated.edges)
+    const scoped = applyVisualizationProfile(generated.nodes, generated.edges, visualizationProfile)
+    setNodes(scoped.nodes)
+    setEdges(scoped.edges)
     setTemplateId(generated.templateId)
     setSceneTitle(generated.title)
     setSceneCreatedAt(new Date().toISOString())
@@ -447,12 +498,14 @@ function AppCanvas() {
     setLiterature([])
     setCollaboration(emptyCollaboration())
     setMode('biological')
+    setViews([])
+    setActiveViewId(undefined)
     setSelectedNodeId(undefined)
     setSelectedEdgeId(undefined)
     setShowMechanismComposer(false)
     setNotice(`Generated ${parsed.entities.length} entities and ${parsed.interactions.length} typed interactions`)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.08, duration: 550 }))
-  }, [])
+  }, [visualizationProfile])
 
   const saveJson = useCallback(() => {
     downloadText(`bioscene-${templateId}.json`, JSON.stringify(currentScene, null, 2), 'application/json')
@@ -463,23 +516,13 @@ function AppCanvas() {
     try {
       const parsed = parseSceneFile(JSON.parse(await file.text()))
       if (!parsed) throw new Error('Invalid scene schema')
-      setNodes(parsed.nodes)
-      setEdges(parsed.edges)
-      setMode(parsed.constraintMode ?? 'biological')
-      setTemplateId(parsed.templateId ?? DEFAULT_TEMPLATE_ID)
-      setSceneTitle(parsed.title)
-      setSceneCreatedAt(parsed.createdAt)
-      setMechanism(parsed.mechanism)
-      setStylePreset(parsed.stylePreset)
-      setReview(parsed.review)
-      setLiterature(parsed.literature)
-      setCollaboration(parsed.collaboration)
+      applySceneState(parsed)
       setNotice(`${file.name} restored`)
       requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 450 }))
     } catch {
       setNotice('Could not load scene: invalid BioScene JSON')
     }
-  }, [])
+  }, [applySceneState])
 
   const exportFigure = useCallback(async (format: 'png' | 'svg' | 'pptx') => {
     const target = flowRef.current?.querySelector('.react-flow__viewport') as HTMLElement | null
@@ -673,10 +716,10 @@ function AppCanvas() {
 
   const warnings = useMemo(() => biologicalWarnings(nodes, edges), [edges, nodes])
   const counts = useMemo(() => ({
-    objects: nodes.filter((node) => node.data.kind !== 'cell').length,
-    interactions: edges.length,
+    objects: nodes.filter((node) => node.data.kind !== 'cell' && !node.hidden).length,
+    interactions: edges.filter((edge) => !edge.hidden).length,
     warnings: warnings.length,
-  }), [edges.length, nodes, warnings.length])
+  }), [edges, nodes, warnings.length])
 
   return (
     <div className="app-shell" data-style={stylePreset}>
@@ -687,6 +730,8 @@ function AppCanvas() {
         </div>
         <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.11 · Supabase Cloud</small></div>
         <div className="top-actions">
+          <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
+          <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
           <button className="ghost-button" data-help="기전 설명을 문장으로 입력하면 인식한 분자·세포·상호작용을 먼저 미리 보여주고, 확인 후 편집 가능한 장면으로 생성합니다. 생성하면 현재 장면과 근거·메모가 교체되므로 확인창이 표시됩니다." onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
           <button className="ghost-button icon-only" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
           <button className="ghost-button icon-only" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
@@ -715,7 +760,7 @@ function AppCanvas() {
             onNodeClick={(event, node) => { setSelectedNodeId(node.id); setSelectedEdgeId(undefined); setAlignmentNodeIds((ids) => event.shiftKey ? (ids.includes(node.id) ? ids.filter((id) => id !== node.id) : [...ids, node.id]) : [node.id]) }}
             onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(undefined) }}
             onPaneClick={() => { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }}
-            onNodeDragStop={(_, node) => setNodes((current) => current.map((item) => item.id === node.id ? constrainNode(node, mode, current) : item))}
+            onNodeDragStop={(_, node) => handleNodeDragStop(node)}
             fitView
             fitViewOptions={{ padding: 0.12 }}
             minZoom={0.45}
@@ -748,7 +793,7 @@ function AppCanvas() {
               <button title="Distribute horizontally" aria-label="Distribute horizontally" onClick={() => alignSelection('distribute-x')}><AlignHorizontalDistributeCenter size={15} /></button>
               <button title="Distribute vertically" aria-label="Distribute vertically" onClick={() => alignSelection('distribute-y')}><AlignVerticalDistributeCenter size={15} /></button>
             </Panel>
-            <Panel position="top-right" className="scene-badge template-picker" data-help="시작 장면의 생물학적 구조를 선택합니다. 다른 템플릿을 고르면 현재 개체·문헌·검토 정보가 새 템플릿으로 교체되기 전에 확인창이 표시됩니다."><LayoutTemplate size={14} /><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
+            <Panel position="top-right" className="scene-badge template-picker" data-help="왼쪽은 현재 biology를 보는 Scene scope이고 오른쪽은 시작용 biology template입니다. Scene 변경은 개체를 삭제하지 않지만 template 변경은 확인 후 전체 장면을 교체합니다."><LayoutTemplate size={14}/><select aria-label="Scene type" value={visualizationProfile.sceneType} onChange={(event) => changeVisualizationProfile({ ...visualizationProfile, sceneType: event.target.value as VisualizationProfile['sceneType'] })}>{Object.entries(sceneTypeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
           </ReactFlow>
@@ -774,6 +819,8 @@ function AppCanvas() {
       {showLiteraturePanel && <LiteraturePanel records={literature} selectedEdgeId={selectedEdgeId} attachedIds={selectedEdge?.data?.evidence?.literatureIds ?? []} enrichingId={enrichingLiteratureId} canEnrich={!!room.endpoint} onChange={updateLiterature} onAttach={attachLiterature} onEnrich={enrichLiteratureRecord} onClose={() => setShowLiteraturePanel(false)} />}
       {showModulePanel && <TissueModulePanel modules={modules} canSave={!!selectedCell} onSave={saveTissueModule} onInsert={insertTissueModule} onDelete={(id) => setModules((items) => items.filter((item) => item.id !== id))} onClose={() => setShowModulePanel(false)} />}
       {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
+      {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
+      {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
       <ContextHelp />
     </div>
   )

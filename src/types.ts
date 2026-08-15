@@ -12,6 +12,12 @@ export type SceneTemplateId = 'receptor-blockade-single' | 'receptor-blockade-co
 export type MechanismPanel = 'single' | 'untreated' | 'treated' | 'both'
 export type DomainKind = 'extracellular' | 'transmembrane' | 'intracellular' | 'variable' | 'constant' | 'functional'
 export type SiteSemantic = 'ligand-binding' | 'antibody-epitope' | 'dimerization' | 'phosphorylation' | 'localization' | 'catalytic'
+export type SceneType = 'empty' | 'ecm_membrane' | 'full_signaling' | 'intracellular' | 'cellular_interaction' | 'environment' | 'organ_system' | 'molecular_complex' | 'process_timeline'
+export type DetailLevel = 1 | 2 | 3 | 4
+export type AbstractionLevel = 'icon' | 'cartoon' | 'domain' | 'structure'
+export type LayoutMode = 'single' | 'comparison' | 'multi_panel' | 'overview_inset'
+export type ObjectVisibility = 'visible' | 'hidden_by_scope' | 'manually_hidden' | 'collapsed'
+export type PositionMode = 'auto' | 'manual' | 'pinned'
 
 export interface DomainDefinition {
   id: string
@@ -66,6 +72,11 @@ export interface BioNodeFields {
   provenance?: 'explicit' | 'inferred' | 'template'
   asset?: AssetReference
   annotation?: { title: string; body: string; tone: 'info' | 'finding' | 'warning' }
+  visibility?: ObjectVisibility
+  positionMode?: PositionMode
+  sceneType?: SceneType
+  showCompartmentLabels?: boolean
+  showOrganelles?: boolean
 }
 
 export interface AssetReference {
@@ -196,7 +207,7 @@ export interface ParsedMechanism {
 }
 
 export interface SceneFile {
-  schema: 'bioscene.scene.v0.10'
+  schema: 'bioscene.scene.v0.11'
   title: string
   templateId?: SceneTemplateId
   createdAt: string
@@ -208,6 +219,28 @@ export interface SceneFile {
   review: ReviewMetadata
   literature: LiteratureRecord[]
   collaboration: CollaborationState
+  visualizationProfile: VisualizationProfile
+  views: SceneView[]
+  activeViewId?: string
+}
+
+export interface VisualizationProfile {
+  sceneType: SceneType
+  detailLevel: DetailLevel
+  abstractionLevel: AbstractionLevel
+  layoutMode: LayoutMode
+  evidenceDisplay: boolean
+  compartmentLabels: boolean
+  organelleDisplay: boolean
+}
+
+export interface SceneView {
+  id: string
+  name: string
+  profile: VisualizationProfile
+  positions: Record<string, { x: number; y: number; positionMode?: PositionMode }>
+  visibility: Record<string, ObjectVisibility>
+  createdAt: string
 }
 
 export interface ReviewMetadata {

@@ -13,6 +13,9 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Biological Constraint and Free Edit modes
 - Membrane snapping and compartment-aware object placement
 - ELK-based auto layout within each biological compartment
+- Non-destructive Scene scopes for Empty, ECM/Membrane, Full Signaling, Intracellular, Cell-Cell, Environment, Organ/System, Molecular/Complex, and Process/Timeline figures
+- Four detail levels, abstraction profiles, layout modes, and reusable named views over one semantic graph
+- `hidden_by_scope` restoration plus manual and pinned position preservation during Auto layout
 - Edge-aware ELK ordering that uses the real interaction graph before snapping nodes into biological zones
 - Reusable single-panel and untreated-versus-treated mechanism templates
 - Matched two-panel IL-18 signaling versus SLC-7020 blockade scene
@@ -24,7 +27,7 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Parent/child movement: moving the NK cell carries its internal objects
 - Inspector for labels, descriptions, compartments, and molecular state
 - Add/delete objects and interactions
-- Scene save/load in `bioscene.scene.v0.10` JSON, including assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1`–`v0.9` scenes
+- Scene save/load in `bioscene.scene.v0.11` JSON, including visualization profiles, saved views, manual/pinned positions, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1`–`v0.10` scenes
 - Debounced browser-local autosave and automatic restore
 - Strict scene-import validation and biological warning counting
 - State-aware compartment transitions in Biological Constraint mode
