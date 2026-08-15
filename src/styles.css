@@ -12,6 +12,12 @@ body { margin: 0; min-width: 1180px; min-height: 100vh; overflow: hidden; }
 button, input, select { font: inherit; }
 button { color: inherit; }
 
+[data-help] { cursor: help; }
+.context-help { position: fixed; z-index: 5000; width: min(360px, calc(100vw - 24px)); padding: 10px 12px; border: 1px solid rgba(128,166,151,.62); border-radius: 10px; background: rgba(20,45,37,.97); color: #f1faf6; box-shadow: 0 12px 34px rgba(10,31,24,.28); font-size: 11px; font-weight: 550; line-height: 1.55; letter-spacing: -.01em; pointer-events: none; white-space: normal; }
+.context-help-bottom { transform: translateX(-50%); }
+.context-help-top { transform: translate(-50%, -100%); }
+.context-help::before { content: '도움말'; display: block; margin-bottom: 3px; color: #8ed4b7; font-size: 8px; font-weight: 850; letter-spacing: .13em; }
+
 .app-shell { height: 100vh; display: grid; grid-template-rows: 64px 1fr; background: #f6f9f7; }
 .topbar { display: grid; grid-template-columns: 200px minmax(150px, 1fr) auto; align-items: center; border-bottom: 1px solid #dce6e1; background: rgba(255,255,255,.96); padding: 0 12px; z-index: 10; }
 .brand { display: flex; align-items: center; gap: 11px; font-family: Manrope, sans-serif; letter-spacing: -.03em; }

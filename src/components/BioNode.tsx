@@ -30,6 +30,8 @@ function AntibodyGlyph() {
   )
 }
 
+const portHelp = (port: PortDefinition) => `${port.role === 'source' ? '이 포트에서 다른 개체의 호환 포트로 드래그하면 상호작용 선을 만듭니다.' : '다른 개체의 호환 포트를 이곳으로 드래그하면 상호작용 선을 만듭니다.'} ${port.semantic} 계열 포트이며 허용 관계는 ${port.allowedInteractions.join(', ')}입니다.`
+
 export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
   const Icon = icons[data.kind]
   const isAntibody = data.kind === 'antibody'
@@ -44,6 +46,7 @@ export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
           type={port.role}
           position={positions[port.side]}
           className={`bio-handle handle-${port.semantic}`}
+          data-help={portHelp(port)}
           title={`${port.semantic}: ${port.id} · ${port.allowedInteractions.join('/')}`}
         />
       ))}
@@ -53,7 +56,7 @@ export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
         {data.subtitle && <small>{data.subtitle}</small>}
       </div>
       {data.state && <span className="state-pill">{stateLabel(data)}</span>}
-      {data.provenance === 'inferred' && <span className="provenance-badge" title="Inferred by the mechanism parser">INFERRED</span>}
+      {data.provenance === 'inferred' && <span className="provenance-badge" data-help="사용자 문장에 직접 쓰이지 않았지만 알려진 기전 경로를 완성하기 위해 파서가 추론한 개체입니다. 점선 테두리로 구분되며 리뷰 ZIP의 PROVENANCE.csv에도 inferred로 기록됩니다.">INFERRED</span>}
     </div>
   )
 }

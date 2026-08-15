@@ -32,6 +32,7 @@ import { ReviewPanel } from './components/ReviewPanel'
 import { LiteraturePanel } from './components/LiteraturePanel'
 import { TissueModulePanel } from './components/TissueModulePanel'
 import { CollaborationPanel } from './components/CollaborationPanel'
+import { ContextHelp } from './components/ContextHelp'
 import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
@@ -686,15 +687,15 @@ function AppCanvas() {
         </div>
         <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.11 · Supabase Cloud</small></div>
         <div className="top-actions">
-          <button className="ghost-button" onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
+          <button className="ghost-button" data-help="기전 설명을 문장으로 입력하면 인식한 분자·세포·상호작용을 먼저 미리 보여주고, 확인 후 편집 가능한 장면으로 생성합니다. 생성하면 현재 장면과 근거·메모가 교체되므로 확인창이 표시됩니다." onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
           <button className="ghost-button icon-only" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
           <button className="ghost-button icon-only" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
           <button className="ghost-button" onClick={resetScene}><RotateCcw size={16} /> Reset</button>
           <button className="ghost-button" onClick={saveJson}><Save size={16} /> Save JSON</button>
-          <button className="ghost-button" onClick={() => setShowProductionPanel(true)}><PanelsTopLeft size={16} /> Production</button>
-          <button className="ghost-button" onClick={() => setShowLiteraturePanel(true)}><BookOpen size={16} /> Evidence</button>
-          <button className="ghost-button" onClick={() => setShowCollaborationPanel(true)}><Cloud size={16} /> Collaborate</button>
-          <button className={`ghost-button review-${review.status}`} onClick={() => setShowReviewPanel(true)}><ClipboardCheck size={16} /> {review.status}</button>
+          <button className="ghost-button" data-help="논문·발표용 색상과 출력 비율을 고르고 PNG·SVG·PowerPoint로 내보냅니다. 수동 스냅샷을 만들거나 이전 스냅샷으로 복원할 수도 있습니다." onClick={() => setShowProductionPanel(true)}><PanelsTopLeft size={16} /> Production</button>
+          <button className="ghost-button" data-help="PMID·DOI·논문 URL·내부 인용을 등록하고 품질 점수를 매긴 뒤, 선택한 상호작용 선에 근거로 연결합니다." onClick={() => setShowLiteraturePanel(true)}><BookOpen size={16} /> Evidence</button>
+          <button className="ghost-button" data-help="검토 참여자와 댓글을 기록하고, Supabase 계정으로 로그인해 Room ID가 같은 사용자끼리 장면 리비전을 Push/Pull합니다." onClick={() => setShowCollaborationPanel(true)}><Cloud size={16} /> Collaborate</button>
+          <button className={`ghost-button review-${review.status}`} data-help="현재 장면의 검수 상태(draft/in review/approved), 검토자와 과학 검토 메모를 저장합니다. 이 정보는 Scene JSON과 리뷰 ZIP에 포함됩니다." onClick={() => setShowReviewPanel(true)}><ClipboardCheck size={16} /> {review.status}</button>
           <button className="primary-button" onClick={() => exportFigure('png')}><Download size={16} /> Export PNG</button>
         </div>
       </header>
@@ -726,16 +727,16 @@ function AppCanvas() {
             <Controls position="bottom-left" showInteractive={false} />
             <MiniMap position="bottom-right" nodeColor={(node) => node.type === 'cell' ? '#dcece5' : '#5f8878'} maskColor="rgba(245,249,247,.76)" />
             <Panel position="top-left" className="canvas-tools">
-              <button className={mode === 'biological' ? 'mode-button active' : 'mode-button'} onClick={toggleMode}>
+              <button className={mode === 'biological' ? 'mode-button active' : 'mode-button'} data-help="ON이면 개체를 허용된 세포 구획 안에만 배치하고 잘못된 연결을 차단합니다. Free Edit로 바꾸면 위치 제약을 풀지만 과학적 경고는 계속 계산됩니다." onClick={toggleMode}>
                 {mode === 'biological' ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
                 {mode === 'biological' ? 'Biological Constraint ON' : 'Free Edit'}
               </button>
-              <button className="tool-button" onClick={runLayout} disabled={isLayingOut}><Sparkles size={15} /> {isLayingOut ? 'Laying out…' : 'Auto layout'}</button>
-              <button className="tool-button" onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
-              <button className="tool-button" onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
+              <button className="tool-button" data-help="현재 개체와 연결을 ELK가 다시 정렬합니다. Biological Constraint가 켜져 있으면 세포 구획과 부모-자식 관계를 유지한 채 겹침을 줄입니다." onClick={runLayout} disabled={isLayingOut}><Sparkles size={15} /> {isLayingOut ? 'Laying out…' : 'Auto layout'}</button>
+              <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
+              <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
               <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
             </Panel>
-            <Panel position="top-center" className="alignment-tools" aria-label="Alignment tools">
+            <Panel position="top-center" className="alignment-tools" aria-label="Alignment tools" data-help="Shift+클릭으로 둘 이상의 개체를 선택한 뒤 정렬 또는 균등 분배합니다. 선택한 개체의 세포 구획 제약은 유지됩니다.">
               <button title="Align left" aria-label="Align left" onClick={() => alignSelection('left')}><AlignStartVertical size={15} /></button>
               <button title="Align center horizontally" aria-label="Align center horizontally" onClick={() => alignSelection('center-x')}><AlignCenterVertical size={15} /></button>
               <button title="Align right" aria-label="Align right" onClick={() => alignSelection('right')}><AlignEndVertical size={15} /></button>
@@ -747,7 +748,7 @@ function AppCanvas() {
               <button title="Distribute horizontally" aria-label="Distribute horizontally" onClick={() => alignSelection('distribute-x')}><AlignHorizontalDistributeCenter size={15} /></button>
               <button title="Distribute vertically" aria-label="Distribute vertically" onClick={() => alignSelection('distribute-y')}><AlignVerticalDistributeCenter size={15} /></button>
             </Panel>
-            <Panel position="top-right" className="scene-badge template-picker"><LayoutTemplate size={14} /><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
+            <Panel position="top-right" className="scene-badge template-picker" data-help="시작 장면의 생물학적 구조를 선택합니다. 다른 템플릿을 고르면 현재 개체·문헌·검토 정보가 새 템플릿으로 교체되기 전에 확인창이 표시됩니다."><LayoutTemplate size={14} /><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
           </ReactFlow>
@@ -773,6 +774,7 @@ function AppCanvas() {
       {showLiteraturePanel && <LiteraturePanel records={literature} selectedEdgeId={selectedEdgeId} attachedIds={selectedEdge?.data?.evidence?.literatureIds ?? []} enrichingId={enrichingLiteratureId} canEnrich={!!room.endpoint} onChange={updateLiterature} onAttach={attachLiterature} onEnrich={enrichLiteratureRecord} onClose={() => setShowLiteraturePanel(false)} />}
       {showModulePanel && <TissueModulePanel modules={modules} canSave={!!selectedCell} onSave={saveTissueModule} onInsert={insertTissueModule} onDelete={(id) => setModules((items) => items.filter((item) => item.id !== id))} onClose={() => setShowModulePanel(false)} />}
       {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
+      <ContextHelp />
     </div>
   )
 }
