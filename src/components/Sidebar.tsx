@@ -2,7 +2,7 @@ import { Activity, Boxes, CircleDot, Dna, MessageSquareText, ShieldCheck, Sparkl
 import type { BioKind } from '../types'
 import type { PanelId } from '../types'
 
-const items: { kind: Exclude<BioKind, 'cell' | 'annotation'>; label: string; hint: string; help: string; icon: typeof Activity }[] = [
+const items: { kind: Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>; label: string; hint: string; help: string; icon: typeof Activity }[] = [
   { kind: 'receptor', label: 'Receptor', hint: 'Membrane anchored', help: '현재 Target panel의 세포막에 수용체를 추가합니다. Inspector에서 이름·상태·구획을 바꾸고 포트끼리 드래그해 리간드나 하위 신호와 연결합니다.', icon: CircleDot },
   { kind: 'ligand', label: 'Ligand', hint: 'Extracellular', help: '현재 Target panel의 세포외 영역에 리간드를 추가합니다. 수용체의 binding 포트와 연결하면 BIND 같은 허용 상호작용이 자동 추론됩니다.', icon: Sparkles },
   { kind: 'antibody', label: 'Antibody', hint: 'Fab binding port', help: '현재 Target panel의 세포외 영역에 항체를 추가합니다. Fab 포트를 표적 수용체에 연결한 뒤 BLOCK·AGONIZE 등 의미 유형을 Inspector에서 지정할 수 있습니다.', icon: ShieldCheck },
@@ -10,7 +10,7 @@ const items: { kind: Exclude<BioKind, 'cell' | 'annotation'>; label: string; hin
   { kind: 'transcription', label: 'Transcription', hint: 'Nuclear', help: '핵 전사 프로그램 노드를 추가합니다. TRANSLOCATE 또는 EXPRESS 연결로 상위 신호가 핵 반응으로 이어지는 과정을 표시합니다.', icon: Dna },
 ]
 
-export function Sidebar({ onAdd, targetPanel, onBrowseAssets, onAddCallout, onOpenModules }: { onAdd: (kind: Exclude<BioKind, 'cell' | 'annotation'>) => void; targetPanel: PanelId; onBrowseAssets: () => void; onAddCallout: () => void; onOpenModules: () => void }) {
+export function Sidebar({ onAdd, targetPanel, onBrowseAssets, onAddCallout, onOpenModules }: { onAdd: (kind: Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>) => void; targetPanel: PanelId; onBrowseAssets: () => void; onAddCallout: () => void; onOpenModules: () => void }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-heading">

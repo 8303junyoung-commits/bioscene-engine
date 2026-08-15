@@ -25,6 +25,7 @@ export const sceneTypeLabels: Record<SceneType, string> = {
 const detailRequirement: Record<BioNode['data']['kind'], DetailLevel> = {
   cell: 1,
   annotation: 1,
+  membrane: 1,
   antibody: 1,
   ligand: 2,
   receptor: 2,

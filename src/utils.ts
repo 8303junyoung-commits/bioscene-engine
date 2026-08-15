@@ -3,6 +3,7 @@ import { createBioData, stateAllowsCompartment, validateConnection } from './bio
 import { markerForInteraction } from './visualGrammar'
 import { applyVisualizationProfile, defaultVisualizationProfile } from './sceneViews'
 import { defaultStructuralModel } from './molecules'
+import { defaultFigureWorkspace, sanitizeWorkspace } from './workspace'
 
 const nodeWidth = 132
 const yBounds: Record<Compartment, [number, number]> = { extracellular: [48, 120], membrane: [180, 205], cytoplasm: [280, 365], nucleus: [390, 429], endosome: [305, 324], mitochondria: [405, 419] }
@@ -23,7 +24,7 @@ function parentWidth(nodes: BioNode[] | undefined, parentId?: string) {
 }
 
 export function constrainNode(node: BioNode, mode: ConstraintMode, nodes?: BioNode[]): BioNode {
-  if (mode === 'free' || node.data.kind === 'cell' || node.data.kind === 'annotation') return node
+  if (mode === 'free' || node.data.kind === 'cell' || node.data.kind === 'annotation' || node.data.kind === 'membrane' || !node.parentId) return node
   const bounds = regionBoundsFor(node.data.compartment, parentWidth(nodes, node.parentId))
   const x = Math.max(bounds.x[0], Math.min(bounds.x[1], node.position.x))
   const y = node.data.compartment === 'membrane'
@@ -71,7 +72,7 @@ function isAssetReference(value: unknown): value is AssetReference {
 export function isSceneFile(value: unknown): value is SceneFile {
   if (!value || typeof value !== 'object') return false
   const scene = value as Partial<SceneFile>
-  if (scene.schema !== 'bioscene.scene.v0.12' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
+  if (scene.schema !== 'bioscene.scene.v0.13' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
   if (scene.constraintMode !== 'biological' && scene.constraintMode !== 'free') return false
   if (typeof scene.title !== 'string' || typeof scene.createdAt !== 'string') return false
   if (!['scientific-clean', 'journal-light', 'presentation-dark'].includes(scene.stylePreset ?? 'scientific-clean')) return false
@@ -81,6 +82,7 @@ export function isSceneFile(value: unknown): value is SceneFile {
   if (!isCollaborationState(scene.collaboration)) return false
   if (!isVisualizationProfile(scene.visualizationProfile) || !Array.isArray(scene.views)) return false
   if (!Array.isArray(scene.moleculeLibrary) || !scene.moleculeLibrary.every(isMoleculeDefinition) || !Array.isArray(scene.customFunctions) || !scene.customFunctions.every((item) => typeof item === 'string')) return false
+  if (!scene.workspace || !Number.isFinite(scene.workspace.width) || !Number.isFinite(scene.workspace.height)) return false
   const validNodes = scene.nodes.every((node) => (
     node && typeof node.id === 'string' && typeof node.position?.x === 'number' && typeof node.position?.y === 'number'
     && typeof node.data?.label === 'string' && compartments.has(node.data.compartment)
@@ -169,7 +171,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
   if (!value || typeof value !== 'object') return undefined
   const legacy = value as Record<string, unknown>
   if (!Array.isArray(legacy.nodes) || !Array.isArray(legacy.edges)) return undefined
-  const schemas = new Set(Array.from({ length: 12 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
+  const schemas = new Set(Array.from({ length: 13 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
   if (typeof legacy.schema !== 'string' || !schemas.has(legacy.schema)) return undefined
   try {
     const nodes = legacy.nodes.map((entry) => {
@@ -180,7 +182,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       const matchingState = defaults.states.find((state) => state.id === node.data.state || state.label === node.data.state)
       const visibility = ['visible','hidden_by_scope','manually_hidden','collapsed'].includes(String(node.data.visibility)) ? node.data.visibility : 'visible'
       const positionMode = ['auto','manual','pinned'].includes(String(node.data.positionMode)) ? node.data.positionMode : 'auto'
-      return { ...node, hidden: visibility !== 'visible', deletable: node.data.kind === 'cell' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode } }
+      return { ...node, hidden: visibility !== 'visible', deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode } }
     })
     const byId = new Map(nodes.map((node) => [node.id, node]))
     const edges = (legacy.edges as BioEdge[]).map((edge) => {
@@ -207,7 +209,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
     const scoped = applyVisualizationProfile(nodes, sanitizedEdges, rawProfile)
     const moleculeLibrary = Array.isArray(legacy.moleculeLibrary) ? legacy.moleculeLibrary.map(sanitizeMolecule).filter((item): item is MoleculeDefinition => !!item) : []
     const scene: SceneFile = {
-      schema: 'bioscene.scene.v0.12',
+      schema: 'bioscene.scene.v0.13',
       title: typeof legacy.title === 'string' ? legacy.title : 'Imported BioScene',
       templateId,
       createdAt: typeof legacy.createdAt === 'string' ? legacy.createdAt : new Date().toISOString(),
@@ -228,6 +230,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       activeViewId: typeof legacy.activeViewId === 'string' ? legacy.activeViewId : undefined,
       moleculeLibrary,
       customFunctions: Array.isArray(legacy.customFunctions) ? legacy.customFunctions.filter((item): item is string => typeof item === 'string') : [],
+      workspace: sanitizeWorkspace(legacy.workspace),
     }
     return isSceneFile(scene) ? scene : undefined
   } catch {
@@ -238,10 +241,10 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
 export function parseTissueModule(value: unknown): TissueModule | undefined {
   if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string' || typeof value.description !== 'string' || typeof value.createdAt !== 'string' || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) return undefined
   const parsed = parseSceneFile({
-    schema: 'bioscene.scene.v0.12', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
+    schema: 'bioscene.scene.v0.13', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
     nodes: value.nodes, edges: value.edges, stylePreset: 'scientific-clean',
     review: { status: 'draft', reviewers: [], notes: '', updatedAt: value.createdAt },
-    literature: Array.isArray(value.literature) ? value.literature : [], collaboration: { participants: [], comments: [], activity: [] },
+    literature: Array.isArray(value.literature) ? value.literature : [], collaboration: { participants: [], comments: [], activity: [] }, workspace: defaultFigureWorkspace,
   })
   return parsed ? { id: value.id, name: value.name, description: value.description, createdAt: value.createdAt, nodes: parsed.nodes, edges: parsed.edges, literature: parsed.literature } : undefined
 }
@@ -251,7 +254,7 @@ export function biologicalWarnings(nodes: BioNode[], edges: BioEdge[]) {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   for (const node of nodes) {
     if (node.hidden) continue
-    if (node.data.kind === 'cell' || node.data.kind === 'annotation') continue
+    if (node.data.kind === 'cell' || node.data.kind === 'annotation' || node.data.kind === 'membrane' || !node.parentId) continue
     const bounds = regionBoundsFor(node.data.compartment, parentWidth(nodes, node.parentId))
     const outsideX = node.position.x < bounds.x[0] || node.position.x > bounds.x[1]
     const outsideY = node.position.y < bounds.y[0] || node.position.y > bounds.y[1]

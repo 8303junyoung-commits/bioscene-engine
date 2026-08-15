@@ -20,6 +20,7 @@ const icons = {
   transcription: Dna,
   cell: CircleDot,
   annotation: MessageSquareText,
+  membrane: CircleDot,
 }
 
 function AntibodyGlyph() {
@@ -39,7 +40,7 @@ export function BioNode({ data, selected }: NodeProps<BioNodeType>) {
   const fallbackIcon = isAntibody ? <AntibodyGlyph /> : <Icon size={19} strokeWidth={1.8} />
 
   return (
-    <div className={`bio-node bio-${data.kind} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${selected ? 'is-selected' : ''}`}>
+    <div className={`bio-node bio-${data.kind} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${data.membraneAnchor ? 'is-membrane-anchored' : ''} ${selected ? 'is-selected' : ''}`} style={data.membraneAnchor ? { transform: `rotate(${data.membraneAnchor.angle}deg)` } : undefined}>
       {data.ports.map((port) => (
         <Handle
           key={port.id}

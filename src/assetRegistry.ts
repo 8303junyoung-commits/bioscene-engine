@@ -40,6 +40,7 @@ const registry: Record<string, RegistryEntry> = {
 }
 
 const kindTerms: Record<BioKind, string[]> = {
+  membrane: ['membrane', 'bilayer', 'biological boundary'],
   cell: ['cell', '세포'], receptor: ['receptor', '수용체', 'membrane protein'], ligand: ['ligand', 'cytokine', '리간드', 'interleukin'],
   antibody: ['antibody', 'immunoglobulin', '항체', 'IgG'], signal: ['signal', 'kinase', 'pathway', '신호'], transcription: ['transcription', 'DNA', 'gene', '전사'],
   annotation: ['annotation', 'callout', 'note', '주석'],

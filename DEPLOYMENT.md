@@ -32,7 +32,7 @@ After Render creates the site, add its exact HTTPS origin as the Supabase **Site
 - Browser roles have no direct table grants. RLS remains enabled as defense in depth.
 - Service-role credentials exist only in the managed Edge Function environment.
 - CORS accepts only configured origins.
-- Scene payloads are limited to 5 MB and must declare `bioscene.scene.v0.10`.
+- Scene payloads are limited to 5 MB and must declare `bioscene.scene.v0.13`.
 - Literature URL input is never fetched arbitrarily; DOI and PMID use bounded Crossref and PubMed endpoints.
 
 ## Verification

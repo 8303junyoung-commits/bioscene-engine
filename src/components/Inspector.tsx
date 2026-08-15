@@ -1,5 +1,5 @@
 import { allCompartments } from '../biology'
-import type { BioNode, BioNodePatch, Compartment, ConstraintMode, InteractionData, InteractionType } from '../types'
+import type { BioNode, BioNodePatch, Compartment, ConstraintMode, InteractionData, InteractionType, MembraneDefinition } from '../types'
 import { safeAssetFile } from '../assetRegistry'
 
 const interactions: InteractionType[] = ['BIND', 'BLOCK', 'AGONIZE', 'CLUSTER', 'PHOSPHORYLATE', 'ACTIVATE', 'INHIBIT', 'SIGNAL_ABSENT', 'TRANSLOCATE', 'SECRETE', 'EXPRESS', 'INTERNALIZE', 'DEGRADE', 'CLEAVE', 'RECRUIT', 'DIMERIZE', 'COMPETE']
@@ -36,7 +36,26 @@ export function Inspector(props: InspectorProps) {
         </div>
       )}
 
-      {selectedNode && (
+      {selectedNode?.data.kind === 'membrane' && selectedNode.data.membrane && (() => {
+        const membrane = selectedNode.data.membrane
+        const changeMembrane = (patch: Partial<MembraneDefinition>) => props.onNodeChange({ membrane: { ...membrane, ...patch } })
+        return <div className="inspector-form membrane-inspector">
+          <div className="identity-row"><span className="asset-icon asset-membrane"/><div><strong>Membrane</strong><small>{selectedNode.id}</small></div></div>
+          <label data-help="캔버스와 검토 자료에 표시할 막 이름을 입력합니다.">Name<input value={membrane.name} onChange={(event) => { const name=event.target.value; props.onNodeChange({ label:name, membrane:{...membrane,name} }) }}/></label>
+          <label data-help="Plasma membrane은 세포막, Basement membrane은 기저막, Epithelial/Endothelial barrier는 조직 경계로 의미가 저장됩니다.">Boundary type<select value={membrane.boundaryType} onChange={(event)=>changeMembrane({boundaryType:event.target.value as MembraneDefinition['boundaryType']})}><option value="plasma_membrane">Plasma membrane</option><option value="basement_membrane">Basement membrane</option><option value="epithelial_barrier">Epithelial barrier</option><option value="endothelial_barrier">Endothelial barrier</option><option value="custom">Custom biological boundary</option></select></label>
+          <label data-help="그린 경로의 A면 구획입니다. 기본값은 extracellular이며 B면과 반대 구획으로 유지됩니다.">Side A<select value={membrane.sideA} onChange={(event)=>{const sideA=event.target.value as MembraneDefinition['sideA'];changeMembrane({sideA,sideB:sideA==='extracellular'?'cytoplasm':'extracellular'})}}><option value="extracellular">Extracellular</option><option value="cytoplasm">Cytoplasm</option></select></label>
+          <label data-help="그린 경로의 B면 구획입니다. A면을 바꾸면 자동으로 반대 구획이 됩니다.">Side B<select value={membrane.sideB} onChange={(event)=>{const sideB=event.target.value as MembraneDefinition['sideB'];changeMembrane({sideB,sideA:sideB==='extracellular'?'cytoplasm':'extracellular'})}}><option value="extracellular">Extracellular</option><option value="cytoplasm">Cytoplasm</option></select></label>
+          <button className="structure-edit-button" data-help="Extracellular과 Cytoplasm 방향을 한 번에 뒤집습니다. 막에 고정된 수용체의 위치 비율은 유지됩니다." onClick={()=>changeMembrane({sideA:membrane.sideB,sideB:membrane.sideA})}>Flip inside / outside</button>
+          <label data-help="Simple은 굵은 띠, Standard는 이중선, Detailed는 지질 패턴을 표시합니다. 생물학적 앵커 데이터는 동일하게 유지됩니다.">Visual style<select value={membrane.style} onChange={(event)=>changeMembrane({style:event.target.value as MembraneDefinition['style']})}><option value="simple">Simple</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select></label>
+          <label data-help="막 중심선을 기준으로 시각적 두께만 조절합니다. 고정된 단백질은 중심선을 따라 유지됩니다.">Thickness <b>{membrane.thickness}px</b><input type="range" min="4" max="28" value={membrane.thickness} onChange={(event)=>changeMembrane({thickness:Number(event.target.value)})}/></label>
+          <label data-help="값이 높을수록 경로 점을 더 부드럽게 다시 계산합니다. Smooth 버튼을 누르면 현재 경로에 실제 반영됩니다.">Curvature smoothing <b>{membrane.smoothing}%</b><input type="range" min="0" max="100" value={membrane.smoothing} onChange={(event)=>changeMembrane({smoothing:Number(event.target.value)})}/></label>
+          <button className="structure-edit-button" data-help="현재 경로를 단순화하고 곡선을 매끄럽게 다시 계산합니다. 고정된 수용체는 같은 pathPosition에서 재배치됩니다." onClick={()=>changeMembrane({path:membrane.path.length>2?membrane.path.map((point,index,points)=>index===0||index===points.length-1?point:{x:(points[index-1].x+point.x*2+points[index+1].x)/4,y:(points[index-1].y+point.y*2+points[index+1].y)/4}):membrane.path})}>Smooth path</button>
+          <div className="semantic-card"><span>ANCHORED OBJECTS</span>{membrane.anchors.length?membrane.anchors.map((anchor)=><code key={anchor.objectId}>{anchor.objectId} · {Math.round(anchor.pathPosition*100)}%</code>):<small>No anchored receptors</small>}</div>
+          <button className="danger-button" onClick={props.onDelete}>Delete membrane</button>
+        </div>
+      })()}
+
+      {selectedNode && selectedNode.data.kind !== 'membrane' && (
         <div className="inspector-form">
           <div className="identity-row">
             <span className={`asset-icon asset-${selectedNode.data.kind}`} />

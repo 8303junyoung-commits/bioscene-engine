@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import {
   Background,
   BackgroundVariant,
@@ -7,6 +7,7 @@ import {
   Panel,
   ReactFlow,
   ReactFlowProvider,
+  ViewportPortal,
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
@@ -36,10 +37,13 @@ import { ContextHelp } from './components/ContextHelp'
 import { SceneSettingsPanel } from './components/SceneSettingsPanel'
 import { NewFigureDialog } from './components/NewFigureDialog'
 import { MoleculeSetupPanel } from './components/MoleculeSetupPanel'
+import { MembraneNode } from './components/MembraneNode'
+import { WorkspaceSetupPanel } from './components/WorkspaceSetupPanel'
+import { BlankQuickStart } from './components/BlankQuickStart'
 import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
-import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, ExportPreset, InteractionData, InteractionType, LiteratureRecord, MoleculeDefinition, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
+import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, DrawingTool, ExportPreset, FigureWorkspace, InteractionData, InteractionType, LiteratureRecord, MembraneDefinition, MembranePoint, MoleculeDefinition, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
 import { autoLayout, biologicalWarnings, constrainNode, downloadText, findAvailablePosition, parseSceneFile, parseTissueModule } from './utils'
 import { uid } from './identity'
 import { markerForInteraction } from './visualGrammar'
@@ -48,10 +52,12 @@ import { BackendConflictError, enrichLiterature, pullRoom, pushRoom, sanitizedEn
 import { sendMagicLink, signOutSupabase, supabaseApiEndpoint, supabaseConfigured, watchSupabaseSession } from './supabaseClient'
 import { applyVisualizationProfile, captureView, defaultVisualizationProfile, restoreView, sceneTypeLabels } from './sceneViews'
 import { applyMoleculeToNode, createMolecule, portsFromDomains } from './molecules'
+import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
+import { defaultFigureWorkspace, workspaceBackground } from './workspace'
 
-const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode }
+const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
-const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.12'
+const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.13'
 const REVISION_KEY = 'bioscene.scene.revisions.v0.10'
 const MODULE_KEY = 'bioscene.tissue.modules.v0.10'
 const ROOM_KEY = 'bioscene.room.config.v0.10'
@@ -64,13 +70,13 @@ const exportSpecs: Record<ExportPreset, { width: number; height: number; backgro
   transparent: { width: 2400, height: 1350, layout: 'LAYOUT_WIDE' },
 }
 const styleBackground: Record<StylePreset, string> = { 'scientific-clean': '#f8fbf9', 'journal-light': '#ffffff', 'presentation-dark': '#17211e' }
-const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation'>, string> = {
+const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>, string> = {
   receptor: 'Receptor', ligand: 'Ligand', antibody: 'Antibody', signal: 'Signal node', transcription: 'Transcription',
 }
 
 function readAutosavedScene() {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
+    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.12') ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
     if (!raw) return undefined
     return parseSceneFile(JSON.parse(raw))
   } catch {
@@ -154,6 +160,34 @@ function addSvgCredit(dataUrl: string, credit: string, width: number, height: nu
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(next)}`
 }
 
+function nodeSize(node: BioNodeType) {
+  const width = typeof node.style?.width === 'number' ? node.style.width : Number.parseFloat(String(node.style?.width ?? 155)) || 155
+  const height = typeof node.style?.height === 'number' ? node.style.height : Number.parseFloat(String(node.style?.height ?? 64)) || 64
+  return { width, height }
+}
+
+function anchoredPosition(membraneNode: BioNodeType, pathPosition: number) {
+  const membrane = membraneNode.data.membrane
+  if (!membrane) return undefined
+  const local = pathPointAt(membrane.path, pathPosition)
+  return { x: membraneNode.position.x + local.point.x, y: membraneNode.position.y + local.point.y, angle: local.angle }
+}
+
+function repositionMembraneAnchors(items: BioNodeType[], membraneNode: BioNodeType) {
+  return items.map((item) => {
+    const anchor = item.data.membraneAnchor
+    if (!anchor || anchor.membraneId !== membraneNode.id) return item
+    const target = anchoredPosition(membraneNode, anchor.pathPosition)
+    if (!target) return item
+    const size = nodeSize(item)
+    return {
+      ...item,
+      position: { x: target.x - size.width / 2, y: target.y - size.height / 2 },
+      data: { ...item.data, membraneAnchor: { ...anchor, angle: target.angle } },
+    }
+  })
+}
+
 function AppCanvas() {
   const autosavedScene = useMemo(readAutosavedScene, [])
   const initialTemplate = useMemo(() => cloneTemplate(autosavedScene?.templateId ?? DEFAULT_TEMPLATE_ID), [autosavedScene?.templateId])
@@ -178,6 +212,10 @@ function AppCanvas() {
   const [activeViewId, setActiveViewId] = useState<string | undefined>(() => autosavedScene?.activeViewId)
   const [moleculeLibrary, setMoleculeLibrary] = useState<MoleculeDefinition[]>(() => autosavedScene?.moleculeLibrary ?? [])
   const [customFunctions, setCustomFunctions] = useState<string[]>(() => autosavedScene?.customFunctions ?? [])
+  const [workspace, setWorkspace] = useState<FigureWorkspace>(() => autosavedScene?.workspace ?? { ...defaultFigureWorkspace })
+  const [showWorkspaceSetup, setShowWorkspaceSetup] = useState(false)
+  const [drawingTool, setDrawingTool] = useState<DrawingTool>('select')
+  const [draftMembrane, setDraftMembrane] = useState<{ flow: MembranePoint[]; screen: MembranePoint[] }>()
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
   const [revisions, setRevisions] = useState<SceneRevision[]>(readRevisions)
   const [showMechanismComposer, setShowMechanismComposer] = useState(false)
@@ -210,10 +248,10 @@ function AppCanvas() {
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
   const targetPanel = selectedNode?.data.panelId ?? (nodes.some((node) => node.data.panelId === 'treated') ? 'treated' : 'single')
   const currentScene = useMemo<SceneFile>(() => ({
-    schema: 'bioscene.scene.v0.12', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
+    schema: 'bioscene.scene.v0.13', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
     constraintMode: mode, nodes, edges, mechanism, stylePreset, review, literature, collaboration,
-    visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions,
-  }), [activeViewId, collaboration, customFunctions, edges, literature, mechanism, mode, moleculeLibrary, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile])
+    visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions, workspace,
+  }), [activeViewId, collaboration, customFunctions, edges, literature, mechanism, mode, moleculeLibrary, nodes, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -249,7 +287,7 @@ function AppCanvas() {
   }, [])
 
   const applySceneState = useCallback((scene: SceneFile) => {
-    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setMoleculeLibrary(scene.moleculeLibrary); setCustomFunctions(scene.customFunctions); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
+    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setMoleculeLibrary(scene.moleculeLibrary); setCustomFunctions(scene.customFunctions); setWorkspace(scene.workspace); setDrawingTool('select'); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .1, duration: 350 }))
   }, [])
 
@@ -306,7 +344,7 @@ function AppCanvas() {
     setNotice(`${interaction} interaction created`)
   }, [mode, nodes])
 
-  const addBiologicalNode = useCallback((kind: Exclude<BioKind, 'cell' | 'annotation'>) => {
+  const addBiologicalNode = useCallback((kind: Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>) => {
     const defaults = semanticDefaults[kind]
     const label = defaultLabels[kind]
     const targetCell = selectedNode?.data.kind === 'cell'
@@ -347,11 +385,17 @@ function AppCanvas() {
         setNotice(`${nextState.label} state moved ${selectedNode.data.label} to ${normalized.compartment}`)
       }
     }
-    setNodes((current) => current.map((node) => {
+    setNodes((current) => {
+      let changedMembrane: BioNodeType | undefined
+      const nextItems = current.map((node) => {
       if (node.id !== selectedNodeId) return node
       const next = { ...node, hidden: normalized.visibility ? normalized.visibility !== 'visible' : node.hidden, data: { ...node.data, ...normalized } }
-      return (normalized.compartment || normalized.state) && mode === 'biological' ? constrainNode(next, mode, current) : next
-    }))
+      const result = (normalized.compartment || normalized.state) && mode === 'biological' ? constrainNode(next, mode, current) : next
+      if (result.data.kind === 'membrane') changedMembrane = result
+      return result
+      })
+      return changedMembrane ? repositionMembraneAnchors(nextItems, changedMembrane) : nextItems
+    })
   }, [mode, selectedNode, selectedNodeId])
 
   const attachAsset = useCallback((asset: AssetReference) => {
@@ -418,7 +462,7 @@ function AppCanvas() {
   const deleteSelected = useCallback(() => {
     const selected = nodes.find((node) => node.id === selectedNodeId)
     if (selectedNodeId && selected?.data.kind !== 'cell') {
-      setNodes((current) => current.filter((node) => node.id !== selectedNodeId))
+      setNodes((current) => current.filter((node) => node.id !== selectedNodeId).map((node) => selected?.data.kind === 'membrane' && node.data.membraneAnchor?.membraneId === selectedNodeId ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
       setEdges((current) => current.filter((edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId))
     }
     if (selectedEdgeId) setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId))
@@ -459,12 +503,97 @@ function AppCanvas() {
   const createEmptyFigure = useCallback(() => {
     if ((nodes.length || literature.length || review.notes || collaboration.comments.length) && !window.confirm('새 빈 장면을 만들까요? 현재 장면은 자동 저장 기록에서 교체됩니다. 먼저 Save JSON을 권장합니다.')) return
     const profile = { ...visualizationProfile, sceneType: 'empty' as const, layoutMode: 'single' as const }
-    setNodes([]); setEdges([]); setVisualizationProfile(profile); setViews([]); setActiveViewId(undefined); setTemplateId(DEFAULT_TEMPLATE_ID); setSceneTitle('Untitled biological figure'); setSceneCreatedAt(new Date().toISOString()); setMechanism(undefined); setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() }); setLiterature([]); setCollaboration(emptyCollaboration()); setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setShowNewFigure(false); setNotice('Empty canvas ready')
+    setNodes([]); setEdges([]); setVisualizationProfile(profile); setViews([]); setActiveViewId(undefined); setTemplateId(DEFAULT_TEMPLATE_ID); setSceneTitle('Untitled biological figure'); setSceneCreatedAt(new Date().toISOString()); setMechanism(undefined); setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() }); setLiterature([]); setCollaboration(emptyCollaboration()); setWorkspace({ ...defaultFigureWorkspace }); setDrawingTool('select'); setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setShowNewFigure(false); setShowWorkspaceSetup(true); setNotice('Choose a figure workspace to begin')
   }, [collaboration.comments.length, literature.length, nodes.length, review.notes, visualizationProfile])
 
   const handleNodeDragStop = useCallback((node: BioNodeType) => {
-    setNodes((current) => current.map((item) => item.id === node.id ? { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' } } : item))
+    setNodes((current) => {
+      const dragged = { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' as const } }
+      if (dragged.data.kind === 'membrane') {
+        const next = current.map((item) => item.id === dragged.id ? dragged : item)
+        return repositionMembraneAnchors(next, dragged)
+      }
+      if (dragged.data.kind !== 'receptor' || dragged.parentId) return current.map((item) => item.id === dragged.id ? dragged : item)
+      const size = nodeSize(dragged)
+      const center = { x: dragged.position.x + size.width / 2, y: dragged.position.y + size.height / 2 }
+      let best: { membrane: BioNodeType; distance: number; pathPosition: number; angle: number; x: number; y: number } | undefined
+      for (const membraneNode of current.filter((item) => item.data.kind === 'membrane' && item.data.membrane)) {
+        const localQuery = { x: center.x - membraneNode.position.x, y: center.y - membraneNode.position.y }
+        const nearest = nearestPathPoint(membraneNode.data.membrane!.path, localQuery)
+        if (!best || nearest.distance < best.distance) best = { membrane: membraneNode, distance: nearest.distance, pathPosition: nearest.pathPosition, angle: nearest.angle, x: membraneNode.position.x + nearest.point.x, y: membraneNode.position.y + nearest.point.y }
+      }
+      if (!best || best.distance > 70) return current.map((item) => {
+        if (item.id === dragged.id) return { ...dragged, data: { ...dragged.data, membraneAnchor: undefined } }
+        if (item.data.kind === 'membrane' && item.data.membrane?.anchors.some((anchor) => anchor.objectId === dragged.id)) return { ...item, data: { ...item.data, membrane: { ...item.data.membrane, anchors: item.data.membrane.anchors.filter((anchor) => anchor.objectId !== dragged.id) } } }
+        return item
+      })
+      const anchor = { membraneId: best.membrane.id, pathPosition: best.pathPosition, orientation: 'normal' as const, angle: best.angle }
+      const nextMembraneData: MembraneDefinition = {
+        ...best.membrane.data.membrane!,
+        anchors: [...best.membrane.data.membrane!.anchors.filter((item) => item.objectId !== dragged.id), { objectId: dragged.id, pathPosition: best.pathPosition, orientation: 'normal' }],
+      }
+      setNotice(`${dragged.data.label} snapped to ${best.membrane.data.label}`)
+      return current.map((item) => item.id === dragged.id
+        ? { ...dragged, position: { x: best!.x - size.width / 2, y: best!.y - size.height / 2 }, data: { ...dragged.data, compartment: 'membrane', membraneAnchor: anchor } }
+        : item.id === best!.membrane.id ? { ...item, data: { ...item.data, membrane: nextMembraneData } }
+        : item.data.kind === 'membrane' && item.data.membrane?.anchors.some((record) => record.objectId === dragged.id) ? { ...item, data: { ...item.data, membrane: { ...item.data.membrane, anchors: item.data.membrane.anchors.filter((record) => record.objectId !== dragged.id) } } } : item)
+    })
   }, [mode])
+
+  const fitWorkspace = useCallback(() => {
+    instanceRef.current?.fitBounds({ x: 0, y: 0, width: workspace.width, height: workspace.height }, { padding: .04, duration: 400 })
+  }, [workspace.height, workspace.width])
+
+  const saveWorkspace = useCallback((next: FigureWorkspace) => {
+    setWorkspace(next); setShowWorkspaceSetup(false); setNotice(`Workspace ${Math.round(next.width)} × ${Math.round(next.height)} ${next.unit} ready`)
+    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: .04, duration: 450 }))
+  }, [])
+
+  const fitWorkspaceToContent = useCallback(() => {
+    const visible = nodes.filter((node) => !node.hidden)
+    const right = Math.max(800, ...visible.map((node) => node.position.x + nodeSize(node).width + 80))
+    const bottom = Math.max(600, ...visible.map((node) => node.position.y + nodeSize(node).height + 80))
+    const next = { ...workspace, preset: 'custom' as const, width: Math.ceil(right), height: Math.ceil(bottom) }
+    setWorkspace(next); setNotice('Workspace fitted to visible content')
+    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: .04, duration: 400 }))
+  }, [nodes, workspace])
+
+  const startDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (drawingTool === 'select' || !instanceRef.current) return
+    if ((event.target as HTMLElement).closest('.react-flow__panel,.react-flow__controls,.react-flow__minimap,.blank-quick-start')) return
+    const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
+    const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    setDraftMembrane({ flow: [flow], screen: [{ x: event.clientX - rect.left, y: event.clientY - rect.top }] })
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }, [drawingTool])
+
+  const continueDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
+    if (!draftMembrane || !instanceRef.current || drawingTool === 'select') return
+    const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
+    const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+    const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    setDraftMembrane((draft) => {
+      if (!draft) return draft
+      const last = draft.screen[draft.screen.length - 1]
+      if (Math.hypot(screen.x - last.x, screen.y - last.y) < 4) return draft
+      return { flow: [...draft.flow, flow], screen: [...draft.screen, screen] }
+    })
+  }, [draftMembrane, drawingTool])
+
+  const finishDrawing = useCallback(() => {
+    if (!draftMembrane || drawingTool === 'select') return
+    const raw = drawingTool === 'straight_membrane' && draftMembrane.flow.length > 1 ? [draftMembrane.flow[0], draftMembrane.flow[draftMembrane.flow.length - 1]] : draftMembrane.flow
+    setDraftMembrane(undefined)
+    if (raw.length < 2 || Math.hypot(raw.at(-1)!.x - raw[0].x, raw.at(-1)!.y - raw[0].y) < 20) return
+    const smoothed = drawingTool === 'freehand_membrane' ? smoothMembranePoints(raw, .72) : raw
+    const minX = Math.min(...smoothed.map((point) => point.x)); const minY = Math.min(...smoothed.map((point) => point.y))
+    const maxX = Math.max(...smoothed.map((point) => point.x)); const maxY = Math.max(...smoothed.map((point) => point.y)); const pad = 30
+    const path = smoothed.map((point) => ({ x: point.x - minX + pad, y: point.y - minY + pad }))
+    const id = uid('membrane')
+    const membrane: MembraneDefinition = { id, name: 'Plasma membrane', boundaryType: 'plasma_membrane', path, sideA: 'extracellular', sideB: 'cytoplasm', closed: false, style: 'standard', thickness: 12, smoothing: 65, anchors: [] }
+    const node: BioNodeType = { id, type: 'membrane', deletable: false, position: { x: minX - pad, y: minY - pad }, style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) }, data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }) }
+    setNodes((items) => [...items, node]); setSelectedNodeId(id); setAlignmentNodeIds([id]); setDrawingTool('select'); setNotice('Biological membrane created. Drag a receptor near it to snap.')
+  }, [draftMembrane, drawingTool])
 
   const runLayout = useCallback(async () => {
     setIsLayingOut(true)
@@ -564,17 +693,21 @@ function AppCanvas() {
     try {
     setSelectedNodeId(undefined)
     setSelectedEdgeId(undefined)
-    await instanceRef.current?.fitView({ padding: .14, duration: 0 })
+    const workspaceScene = visualizationProfile.sceneType === 'empty'
+    if (workspaceScene) await instanceRef.current?.fitBounds({ x: 0, y: 0, width: workspace.width, height: workspace.height }, { padding: 0, duration: 0 })
+    else await instanceRef.current?.fitView({ padding: .14, duration: 0 })
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    const spec = exportSpecs[exportPreset]
-    const background = exportPreset === 'transparent' ? undefined : styleBackground[stylePreset]
+    const presetSpec = exportSpecs[exportPreset]
+    const spec = workspaceScene ? { ...presetSpec, width: Math.round(workspace.width), height: Math.round(workspace.height) } : presetSpec
+    const background = workspaceScene ? workspaceBackground(workspace) : exportPreset === 'transparent' ? undefined : styleBackground[stylePreset]
     const attribution = assetAttribution(nodes)
+    const filter = (element: HTMLElement) => element.dataset?.exportExclude !== 'true'
     if (format === 'svg') {
-      const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height })
+      const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height, filter })
       const dataUrl = addSvgCredit(rawSvg, attribution.compact, spec.width, spec.height)
       const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.svg`; anchor.click()
     } else {
-      const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true })
+      const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true, filter })
       const dataUrl = await fitDataUrl(raw, spec.width, spec.height, background, attribution.compact)
       if (format === 'png') {
         const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.png`; anchor.click()
@@ -592,7 +725,7 @@ function AppCanvas() {
     if (attribution.full) downloadText(`bioscene-${templateId}-ATTRIBUTIONS.txt`, attribution.full, 'text/plain')
     setNotice(`${format.toUpperCase()} exported with ${exportPreset} preset`)
     } catch (error) { setNotice(`${format.toUpperCase()} export failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-  }, [exportPreset, nodes, sceneTitle, stylePreset, templateId])
+  }, [exportPreset, nodes, sceneTitle, stylePreset, templateId, visualizationProfile.sceneType, workspace])
 
   const createSnapshot = useCallback(() => {
     const next: SceneRevision = { id: uid('revision'), label: `Revision ${revisions.length + 1}`, createdAt: new Date().toISOString(), scene: JSON.parse(JSON.stringify(currentScene)) as SceneFile }
@@ -762,7 +895,7 @@ function AppCanvas() {
           <span className="brand-mark"><FlaskConical size={20} /></span>
           <span><strong>BioScene</strong><small>ENGINE</small></span>
         </div>
-        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.12 · Supabase Cloud</small></div>
+        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.13 · Supabase Cloud</small></div>
         <div className="top-actions">
           <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
           <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
@@ -782,7 +915,7 @@ function AppCanvas() {
 
       <div className="workspace">
         <Sidebar onAdd={addBiologicalNode} targetPanel={targetPanel} onBrowseAssets={() => setShowAssetBrowser(true)} onAddCallout={addCallout} onOpenModules={() => setShowModulePanel(true)} />
-        <main className="canvas-wrap" ref={flowRef}>
+        <main className={`canvas-wrap ${drawingTool !== 'select' ? 'is-drawing-membrane' : ''}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
           <ReactFlow<BioNodeType, BioEdge>
             nodes={nodes}
             edges={edges}
@@ -797,6 +930,10 @@ function AppCanvas() {
             onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedNodeId(undefined) }}
             onPaneClick={() => { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }}
             onNodeDragStop={(_, node) => handleNodeDragStop(node)}
+            panOnDrag={drawingTool === 'select'}
+            nodesDraggable={drawingTool === 'select'}
+            snapToGrid={workspace.snapToGrid}
+            snapGrid={[workspace.gridSize, workspace.gridSize]}
             fitView
             fitViewOptions={{ padding: 0.12 }}
             minZoom={0.45}
@@ -805,6 +942,14 @@ function AppCanvas() {
             deleteKeyCode={['Backspace', 'Delete']}
           >
             <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#cbd8d1" />
+            <ViewportPortal>
+              <div className="figure-workspace-frame" style={{ width: workspace.width, height: workspace.height, backgroundColor: workspaceBackground(workspace) ?? 'transparent' }}>
+                {workspace.showGrid && <div className="workspace-grid" style={{ backgroundSize: `${workspace.gridSize}px ${workspace.gridSize}px` }} data-export-exclude="true" />}
+                {workspace.showSafeMargin && <div className="workspace-safe-margin" style={{ inset: workspace.safeMargin }} data-export-exclude="true" />}
+                {workspace.showCenterGuide && <><div className="workspace-center-guide horizontal" data-export-exclude="true"/><div className="workspace-center-guide vertical" data-export-exclude="true"/></>}
+                <span className="workspace-dimensions" data-export-exclude="true">{Math.round(workspace.width)} × {Math.round(workspace.height)} {workspace.unit}</span>
+              </div>
+            </ViewportPortal>
             <Controls position="bottom-left" showInteractive={false} />
             <MiniMap position="bottom-right" nodeColor={(node) => node.type === 'cell' ? '#dcece5' : '#5f8878'} maskColor="rgba(245,249,247,.76)" />
             <Panel position="top-left" className="canvas-tools">
@@ -816,6 +961,10 @@ function AppCanvas() {
               <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
               <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
               <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
+              <button className={drawingTool === 'freehand_membrane' ? 'tool-button active' : 'tool-button'} data-help="선택한 뒤 Workspace에서 마우스를 누른 채 원하는 경로를 그립니다. 손떨림을 단순화하고 부드러운 생물학적 막으로 생성합니다." onClick={() => setDrawingTool((tool) => tool === 'freehand_membrane' ? 'select' : 'freehand_membrane')}>Freehand membrane</button>
+              <button className={drawingTool === 'straight_membrane' ? 'tool-button active' : 'tool-button'} data-help="Workspace에서 시작점부터 끝점까지 드래그하면 직선 이중막을 만듭니다. 수용체 신호 그림의 단면에 적합합니다." onClick={() => setDrawingTool((tool) => tool === 'straight_membrane' ? 'select' : 'straight_membrane')}>Straight membrane</button>
+              <button className="tool-button" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
+              <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
             </Panel>
             <Panel position="top-center" className="alignment-tools" aria-label="Alignment tools" data-help="Shift+클릭으로 둘 이상의 개체를 선택한 뒤 정렬 또는 균등 분배합니다. 선택한 개체의 세포 구획 제약은 유지됩니다.">
               <button title="Align left" aria-label="Align left" onClick={() => alignSelection('left')}><AlignStartVertical size={15} /></button>
@@ -833,6 +982,8 @@ function AppCanvas() {
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
           </ReactFlow>
+          {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
+          {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
         </main>
         <Inspector
           selectedNode={selectedNode}
@@ -859,6 +1010,7 @@ function AppCanvas() {
       {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
       {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
       {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onApply={applyMoleculeStructure} onClose={() => setShowMoleculeSetup(false)}/>}
+      {showWorkspaceSetup && <WorkspaceSetupPanel value={workspace} hasContent={nodes.length > 0} onSave={saveWorkspace} onFitContent={fitWorkspaceToContent} onClose={() => setShowWorkspaceSetup(false)} />}
       <ContextHelp />
     </div>
   )

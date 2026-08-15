@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react'
 
 export type Compartment = 'extracellular' | 'membrane' | 'cytoplasm' | 'nucleus' | 'endosome' | 'mitochondria'
-export type BioKind = 'cell' | 'receptor' | 'ligand' | 'antibody' | 'signal' | 'transcription' | 'annotation'
+export type BioKind = 'cell' | 'membrane' | 'receptor' | 'ligand' | 'antibody' | 'signal' | 'transcription' | 'annotation'
 export type InteractionType = 'BIND' | 'BLOCK' | 'AGONIZE' | 'CLUSTER' | 'PHOSPHORYLATE' | 'ACTIVATE' | 'INHIBIT' | 'SIGNAL_ABSENT' | 'TRANSLOCATE' | 'SECRETE' | 'EXPRESS' | 'INTERNALIZE' | 'DEGRADE' | 'CLEAVE' | 'RECRUIT' | 'DIMERIZE' | 'COMPETE'
 export type ConstraintMode = 'biological' | 'free'
 export type StylePreset = 'scientific-clean' | 'journal-light' | 'presentation-dark'
@@ -25,6 +25,11 @@ export type AnnotationSource = 'UniProt' | 'user' | 'inferred' | 'template'
 export type AnnotationConfidence = 'high' | 'medium' | 'low' | 'confirmed'
 export type DomainDisplayLevel = 'hidden' | 'simplified' | 'named' | 'functional' | 'full'
 export type FunctionalPortType = 'binding' | 'recruitment' | 'activation' | 'inhibition' | 'cleavage' | 'enzymatic' | 'phosphorylation' | 'transport' | 'translocation' | 'internalization' | 'signal_input' | 'signal_output' | 'membrane_anchor'
+export type WorkspacePreset = 'presentation_16_9' | 'presentation_4_3' | 'square' | 'landscape' | 'portrait' | 'a4_landscape' | 'a4_portrait' | 'custom'
+export type WorkspaceBackground = 'white' | 'transparent' | 'light_gray' | 'custom'
+export type MembraneBoundaryType = 'plasma_membrane' | 'basement_membrane' | 'epithelial_barrier' | 'endothelial_barrier' | 'custom'
+export type MembraneStyle = 'simple' | 'standard' | 'detailed'
+export type DrawingTool = 'select' | 'freehand_membrane' | 'straight_membrane'
 
 export interface DomainDefinition {
   id: string
@@ -129,6 +134,8 @@ export interface BioNodeFields {
   showOrganelles?: boolean
   moleculeId?: string
   structuralModel?: StructuralModel
+  membrane?: MembraneDefinition
+  membraneAnchor?: MembraneProteinAnchor
 }
 
 export interface AssetReference {
@@ -162,7 +169,7 @@ export interface InteractionEvidence {
   literatureIds?: string[]
 }
 
-export type BioNode = Node<BioNodeData, 'cell' | 'bio' | 'annotation'>
+export type BioNode = Node<BioNodeData, 'cell' | 'bio' | 'annotation' | 'membrane'>
 export type BioEdge = Edge<InteractionData, 'interaction'>
 
 export type LiteratureSourceType = 'pubmed' | 'doi' | 'url' | 'internal'
@@ -259,7 +266,7 @@ export interface ParsedMechanism {
 }
 
 export interface SceneFile {
-  schema: 'bioscene.scene.v0.12'
+  schema: 'bioscene.scene.v0.13'
   title: string
   templateId?: SceneTemplateId
   createdAt: string
@@ -276,6 +283,51 @@ export interface SceneFile {
   activeViewId?: string
   moleculeLibrary: MoleculeDefinition[]
   customFunctions: string[]
+  workspace: FigureWorkspace
+}
+
+export interface FigureWorkspace {
+  preset: WorkspacePreset
+  width: number
+  height: number
+  unit: 'px' | 'pt' | 'mm'
+  background: WorkspaceBackground
+  customBackground?: string
+  safeMargin: number
+  showSafeMargin: boolean
+  showGrid: boolean
+  showCenterGuide: boolean
+  snapToGrid: boolean
+  gridSize: number
+}
+
+export interface MembranePoint { x: number; y: number }
+
+export interface MembraneAnchorRecord {
+  objectId: string
+  pathPosition: number
+  orientation: 'normal' | 'flipped'
+}
+
+export interface MembraneDefinition {
+  id: string
+  name: string
+  boundaryType: MembraneBoundaryType
+  path: MembranePoint[]
+  sideA: 'extracellular' | 'cytoplasm'
+  sideB: 'extracellular' | 'cytoplasm'
+  closed: boolean
+  style: MembraneStyle
+  thickness: number
+  smoothing: number
+  anchors: MembraneAnchorRecord[]
+}
+
+export interface MembraneProteinAnchor {
+  membraneId: string
+  pathPosition: number
+  orientation: 'normal' | 'flipped'
+  angle: number
 }
 
 export interface VisualizationProfile {

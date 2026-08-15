@@ -17,6 +17,12 @@ const signalGrammar: InteractionType[] = ['ACTIVATE', 'INHIBIT', 'SIGNAL_ABSENT'
 const transportGrammar: InteractionType[] = ['TRANSLOCATE', 'SECRETE', 'INTERNALIZE']
 
 export const semanticDefaults: Record<BioKind, SemanticDefaults> = {
+  membrane: {
+    kind: 'membrane', compartment: 'membrane', domains: [], sites: [], ports: [],
+    anchors: [{ id: 'anchor:membrane:workspace', type: 'compartment', compartment: 'membrane', orientation: 'free' }],
+    states: [{ id: 'state:membrane:present', label: 'present', allowedCompartments: ['membrane'] }],
+    allowedCompartments: ['membrane'], state: 'state:membrane:present',
+  },
   cell: {
     kind: 'cell', compartment: 'cytoplasm', domains: [], sites: [], ports: [],
     anchors: [{ id: 'anchor:cell:scene', type: 'parent', compartment: 'cytoplasm', orientation: 'free' }],
