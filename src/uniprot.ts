@@ -1,6 +1,6 @@
 import { defaultStructuralModel } from './molecules'
 import { supabaseUniProtEndpoint } from './supabaseClient'
-import type { DomainDefinition, MoleculeDefinition, MoleculeTopology, ProteinTopologyClass, StructuralModel, StructuralTemplate, UniProtFeatureRecord } from './types'
+import type { DomainDefinition, MoleculeDefinition, MoleculeTopology, ProteinStructureTrace, ProteinTopologyClass, StructuralModel, StructuralTemplate, UniProtFeatureRecord } from './types'
 
 export type UniProtSpecies = '9606' | '10090' | '10116' | '9544'
 export type UniProtStage = 'searching' | 'fetching' | 'parsing' | 'building' | 'matching' | 'done'
@@ -22,12 +22,15 @@ export class UniProtLookupError extends Error {
   constructor(public code: UniProtErrorCode, message: string) { super(message); this.name = 'UniProtLookupError' }
 }
 
-const CACHE_PREFIX = 'bioscene.uniprot.v1:'
+const CACHE_PREFIX = 'bioscene.uniprot.v2:'
 const ENTRY_TTL = 30 * 24 * 60 * 60 * 1000
 const speciesNames: Record<UniProtSpecies, string> = { '9606': 'Homo sapiens', '10090': 'Mus musculus', '10116': 'Rattus norvegicus', '9544': 'Macaca mulatta' }
 const featureSlug = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'') || 'region'
 
 export const isUniProtAccession = (value: string) => /^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?$/i.test(value.trim())
+
+const constructOnlyClasses = new Set(['antibody','adc','fusion_protein','receptor_trap','engineered_protein','protein_drug_conjugate'])
+export const canLookupUniProt = (molecule: MoleculeDefinition) => molecule.privacy === 'public' && !constructOnlyClasses.has(molecule.entityClass)
 
 function readCache<T>(key: string): T | undefined {
   try { const value = JSON.parse(localStorage.getItem(CACHE_PREFIX + key) ?? 'null') as { at?: number; value?: T } | null; return value?.at && Date.now() - value.at < ENTRY_TTL ? value.value : undefined }
@@ -115,16 +118,19 @@ function suggestedTopology(model: StructuralModel): MoleculeTopology {
 
 export async function importUniProtEntry(molecule: MoleculeDefinition, accession: string, onStage?: (stage: UniProtStage) => void, signal?: AbortSignal): Promise<MoleculeDefinition> {
   if (molecule.privacy === 'private') throw new UniProtLookupError('privacy', 'Private constructs are never sent to public databases.')
-  onStage?.('fetching'); const key = `entry:${accession.toUpperCase()}`; let entry = readCache<UniProtEntry>(key); let cached = !!entry
-  if (!entry) {
-    try { const payload = await requestProxy<{ entry?: unknown }>({ action: 'entry', accession }, signal); entry = validateEntry(payload.entry); writeCache(key, entry) }
-    catch (error) { const stale = staleCache<UniProtEntry>(key); if (!stale) throw error; entry = validateEntry(stale); cached = true }
+  type EntryBundle = { entry: UniProtEntry; structureTrace?: ProteinStructureTrace }
+  onStage?.('fetching'); const key = `entry:${accession.toUpperCase()}`; let bundle = readCache<EntryBundle>(key); let cached = !!bundle
+  if (!bundle) {
+    try { const payload = await requestProxy<{ entry?: unknown; structureTrace?: ProteinStructureTrace }>({ action: 'entry', accession }, signal); bundle = { entry:validateEntry(payload.entry), structureTrace:payload.structureTrace }; writeCache(key, bundle) }
+    catch (error) { const stale = staleCache<EntryBundle>(key); if (!stale) throw error; bundle = { ...stale, entry:validateEntry(stale.entry) }; cached = true }
   }
+  const entry = bundle.entry
   onStage?.('parsing'); const features = entry.features ?? []
   const locations = (entry.comments ?? []).filter((comment) => comment.commentType === 'SUBCELLULAR LOCATION').flatMap((comment) => comment.subcellularLocations ?? []).flatMap((item) => item.location?.value ? [item.location.value] : [])
-  onStage?.('building'); const structuralModel = modelFor(molecule, entry); onStage?.('matching')
+  onStage?.('building'); const structuralModel = { ...modelFor(molecule, entry), structureTrace:bundle.structureTrace }; onStage?.('matching')
   const proteinName = entry.proteinDescription?.recommendedName?.fullName?.value ?? entry.proteinDescription?.submissionNames?.[0]?.fullName?.value
-  const next: MoleculeDefinition = { ...molecule, moleculeClass:'protein', suggestedEntityClass:molecule.entityClass==='unknown_custom'?'natural_protein':molecule.suggestedEntityClass, suggestedTopology:suggestedTopology(structuralModel), topologySource:'UniProt', topologyConfidence:'high', topologyConfirmed:false, saveStatus:'draft', geneName: entry.genes?.[0]?.geneName?.value ?? molecule.geneName, proteinName, species: entry.organism?.scientificName, uniprotAccession: entry.primaryAccession, length: entry.sequence?.length, sequence: entry.sequence?.value, subcellularLocations: locations, uniprotFeatures: featureRecords(features), originalStructuralModel: structuredClone(structuralModel), structuralModel, uniprotFetchedAt: new Date().toISOString(), uniprotCached: cached, lookupStatus: 'enriched', lookupMessage: cached ? `Using cached UniProt annotation · ${entry.primaryAccession}` : `Imported from UniProt ${entry.primaryAccession}`, updatedAt: new Date().toISOString() }
+  const structureMessage = bundle.structureTrace ? ` · AlphaFold structure ${Math.round(bundle.structureTrace.meanConfidence ?? 0)} pLDDT` : ''
+  const next: MoleculeDefinition = { ...molecule, moleculeClass:'protein', suggestedEntityClass:molecule.entityClass==='unknown_custom'?'natural_protein':molecule.suggestedEntityClass, suggestedTopology:suggestedTopology(structuralModel), topologySource:'UniProt', topologyConfidence:'high', topologyConfirmed:false, saveStatus:'draft', geneName: entry.genes?.[0]?.geneName?.value ?? molecule.geneName, proteinName, species: entry.organism?.scientificName, uniprotAccession: entry.primaryAccession, length: entry.sequence?.length, sequence: entry.sequence?.value, subcellularLocations: locations, uniprotFeatures: featureRecords(features), originalStructuralModel: structuredClone(structuralModel), structuralModel, uniprotFetchedAt: new Date().toISOString(), uniprotCached: cached, lookupStatus: 'enriched', lookupMessage: (cached ? `Using cached UniProt annotation · ${entry.primaryAccession}` : `Imported from UniProt ${entry.primaryAccession}`) + structureMessage, updatedAt: new Date().toISOString() }
   onStage?.('done'); return next
 }
 

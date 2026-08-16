@@ -107,6 +107,17 @@ export interface StructuralModel {
   visualScaling?: ProteinVisualScaling
   modified?: boolean
   architecture?: ConstructArchitecture
+  structureTrace?: ProteinStructureTrace
+}
+
+export interface ProteinStructureTrace {
+  source: 'AlphaFold DB'
+  modelId: string
+  entryUrl: string
+  coordinateUrl?: string
+  meanConfidence?: number
+  /** Normalized x, y (0–72 / 0–64) and AlphaFold pLDDT. */
+  points: [number, number, number][]
 }
 
 export interface MoleculeSpecificity {

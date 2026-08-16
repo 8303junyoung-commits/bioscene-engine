@@ -4,6 +4,43 @@ const allowedOrganisms = new Set([9606, 10090, 10116, 9544])
 const publicGeneAliases: Record<string,string> = { IL18RB: 'IL18RAP' }
 const accessionPattern = /^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?$/i
 
+type Coordinate = { x:number; y:number; z:number; confidence:number }
+type AlphaFoldPrediction = { entryId?:string; pdbUrl?:string }
+
+function projectTrace(coordinates: Coordinate[]) {
+  const sampled = coordinates.filter((_point,index) => index % Math.max(1,Math.ceil(coordinates.length / 150)) === 0)
+  if (sampled.length < 2) return []
+  const mean = sampled.reduce((sum,point) => ({x:sum.x+point.x,y:sum.y+point.y,z:sum.z+point.z}),{x:0,y:0,z:0})
+  mean.x/=sampled.length; mean.y/=sampled.length; mean.z/=sampled.length
+  const variances = ['x','y','z'].map((axis) => ({axis:axis as 'x'|'y'|'z',value:sampled.reduce((sum,point) => sum+(point[axis]-mean[axis])**2,0)})).sort((a,b)=>b.value-a.value)
+  const horizontal=variances[0].axis; const vertical=variances[1].axis
+  const raw=sampled.map((point)=>({x:point[horizontal]-mean[horizontal],y:point[vertical]-mean[vertical],confidence:point.confidence}))
+  const xRange=Math.max(1,...raw.map((point)=>point.x))-Math.min(0,...raw.map((point)=>point.x)); const yRange=Math.max(1,...raw.map((point)=>point.y))-Math.min(0,...raw.map((point)=>point.y))
+  const scale=Math.min(60/xRange,52/yRange); const xMid=(Math.max(...raw.map((point)=>point.x))+Math.min(...raw.map((point)=>point.x)))/2; const yMid=(Math.max(...raw.map((point)=>point.y))+Math.min(...raw.map((point)=>point.y)))/2
+  return raw.map((point):[number,number,number]=>[Math.round((36+(point.x-xMid)*scale)*10)/10,Math.round((32+(point.y-yMid)*scale)*10)/10,Math.round(point.confidence)])
+}
+
+async function fetchAlphaFoldTrace(accession:string) {
+  try {
+    const metadataResponse=await fetch(`https://alphafold.ebi.ac.uk/api/prediction/${encodeURIComponent(accession)}`,{signal:AbortSignal.timeout(8_000),headers:{Accept:'application/json','User-Agent':'BioScene-Engine/0.16'}})
+    if (!metadataResponse.ok) return undefined
+    const predictions=await metadataResponse.json().catch(()=>null) as AlphaFoldPrediction[]|null; const prediction=Array.isArray(predictions)?predictions.find((item)=>item.pdbUrl):undefined
+    if (!prediction?.pdbUrl) return undefined
+    const coordinateResponse=await fetch(prediction.pdbUrl,{signal:AbortSignal.timeout(10_000),headers:{Accept:'text/plain','User-Agent':'BioScene-Engine/0.16'}})
+    if (!coordinateResponse.ok) return undefined
+    const pdb=await coordinateResponse.text(); const coordinates:Coordinate[]=[]
+    for (const line of pdb.split('\n')) {
+      if (!line.startsWith('ATOM') || line.slice(12,16).trim()!=='CA') continue
+      const x=Number(line.slice(30,38)); const y=Number(line.slice(38,46)); const z=Number(line.slice(46,54)); const confidence=Number(line.slice(60,66))
+      if ([x,y,z,confidence].every(Number.isFinite)) coordinates.push({x,y,z,confidence})
+    }
+    const points=projectTrace(coordinates); if (points.length<2) return undefined
+    const meanConfidence=Math.round(coordinates.reduce((sum,point)=>sum+point.confidence,0)/coordinates.length)
+    const modelId=prediction.entryId??`AF-${accession}-F1`
+    return {source:'AlphaFold DB' as const,modelId,entryUrl:`https://alphafold.ebi.ac.uk/entry/${encodeURIComponent(accession)}`,coordinateUrl:prediction.pdbUrl,meanConfidence,points}
+  } catch { return undefined }
+}
+
 function cors(request: Request) {
   const origin = request.headers.get('origin')
   if (origin && !allowedOrigins.has(origin)) return null
@@ -39,8 +76,8 @@ Deno.serve(async (request) => {
     if (body.action === 'entry') {
       const accession = typeof body.accession === 'string' ? body.accession.trim().toUpperCase() : ''
       if (!accessionPattern.test(accession)) return reply(request, 400, { error: 'Invalid UniProt accession', code: 'not-found' })
-      const result = await fetchUniProt(new URL(`${upstream}/${encodeURIComponent(accession)}?format=json`))
-      return result.data ? reply(request, 200, { entry: result.data }) : reply(request, result.status, { error: result.error, code: result.code })
+      const [result,structureTrace] = await Promise.all([fetchUniProt(new URL(`${upstream}/${encodeURIComponent(accession)}?format=json`)),fetchAlphaFoldTrace(accession)])
+      return result.data ? reply(request, 200, { entry: result.data, structureTrace }) : reply(request, result.status, { error: result.error, code: result.code })
     }
     if (body.action === 'search') {
       const query = typeof body.query === 'string' ? body.query.trim() : ''

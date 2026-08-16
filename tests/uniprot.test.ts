@@ -18,13 +18,16 @@ const entry = ({accession,gene,protein,tm=0,signal=false,secreted=false}:EntryOp
 const il18rb=entry({accession:'Q9HB29',gene:'IL18RAP',protein:'Interleukin-18 receptor accessory protein',tm:1,signal:true})
 const il18=entry({accession:'Q14116',gene:'IL18',protein:'Interleukin-18',signal:true,secreted:true})
 let mode:'ok'|'none'|'down'='ok'; let current=il18rb; let calls=0
-globalThis.fetch=(async (_input:RequestInfo|URL,init?:RequestInit)=>{ calls++; const body=JSON.parse(String(init?.body??'{}')) as {action:string}; if(mode==='none') return new Response(JSON.stringify({error:'No UniProt entry found for this query.',code:'not-found'}),{status:404,headers:{'Content-Type':'application/json'}}); if(mode==='down') return new Response(JSON.stringify({error:'UniProt service is temporarily unavailable.',code:'service'}),{status:503,headers:{'Content-Type':'application/json'}}); return new Response(JSON.stringify(body.action==='search'?{results:[current]}:{entry:current}),{status:200,headers:{'Content-Type':'application/json'}}) }) as typeof fetch
+const trace={source:'AlphaFold DB',modelId:'AF-Q9HB29-F1-model_v6',entryUrl:'https://alphafold.ebi.ac.uk/entry/Q9HB29',meanConfidence:82,points:[[6,8,91],[36,20,84],[64,55,62]]}
+globalThis.fetch=(async (_input:RequestInfo|URL,init?:RequestInit)=>{ calls++; const body=JSON.parse(String(init?.body??'{}')) as {action:string}; if(mode==='none') return new Response(JSON.stringify({error:'No UniProt entry found for this query.',code:'not-found'}),{status:404,headers:{'Content-Type':'application/json'}}); if(mode==='down') return new Response(JSON.stringify({error:'UniProt service is temporarily unavailable.',code:'service'}),{status:503,headers:{'Content-Type':'application/json'}}); return new Response(JSON.stringify(body.action==='search'?{results:[current]}:{entry:current,structureTrace:trace}),{status:200,headers:{'Content-Type':'application/json'}}) }) as typeof fetch
 
-const { lookupUniProt, UniProtLookupError } = await import('../src/uniprot')
+const { lookupUniProt, UniProtLookupError, canLookupUniProt } = await import('../src/uniprot')
 
 const byGene=await lookupUniProt(createMolecule('IL18RB','public'))
 assert.equal(byGene.molecule?.uniprotAccession,'Q9HB29'); assert.equal(byGene.molecule?.structuralModel.classification,'single_pass_receptor'); assert.equal(byGene.molecule?.structuralModel.template,'single_pass_receptor'); assert.ok(byGene.molecule?.uniprotFeatures?.some((item)=>item.type==='Disulfide bond'))
 assert.equal(byGene.molecule?.entityClass,'unknown_custom','UniProt must suggest, not silently accept, identity'); assert.equal(byGene.molecule?.suggestedEntityClass,'natural_protein'); assert.equal(byGene.molecule?.suggestedTopology,'single_pass_membrane'); assert.equal(byGene.molecule?.topologyConfirmed,false)
+assert.equal(byGene.molecule?.structuralModel.structureTrace?.source,'AlphaFold DB'); assert.equal(byGene.molecule?.structuralModel.structureTrace?.points.length,3)
+assert.equal(canLookupUniProt(createMolecule('IL18RB','public')),true,'new unknown public proteins must remain lookup-enabled'); assert.equal(canLookupUniProt(createMolecule('Private','private')),false)
 
 storage.clear(); calls=0; const direct=createMolecule('receptor','public'); direct.uniprotAccession='Q9HB29'; await lookupUniProt(direct); await lookupUniProt(direct); assert.equal(calls,1,'accession cache should avoid duplicate requests')
 

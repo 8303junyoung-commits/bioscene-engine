@@ -1,6 +1,7 @@
 import type { BioNodeData, StructuralTemplate } from '../types'
 
 const inferredTemplate = (data: BioNodeData): StructuralTemplate => data.kind === 'receptor' ? 'single_pass_receptor' : data.kind === 'antibody' ? 'igg' : data.kind === 'ligand' ? 'cytokine' : 'globular'
+const confidenceColor = (value:number) => value >= 90 ? '#2458d3' : value >= 70 ? '#20a7db' : value >= 50 ? '#f0c928' : '#ed6a35'
 
 export function StructureGlyph({ data }: { data: BioNodeData }) {
   const model = data.structuralModel
@@ -31,6 +32,15 @@ export function StructureGlyph({ data }: { data: BioNodeData }) {
       <circle className="domain-tip tip-one" style={{opacity:opacity(left?.id)}} cx="12" cy="19" r="5"/><circle className={`domain-tip ${bispecific ? 'tip-two' : 'tip-one'}`} style={{opacity:opacity(right?.id)}} cx="60" cy="19" r="5"/>
       <rect className="domain-fc" style={{opacity:opacity(fc?.id)}} x="29" y="48" width="14" height="11" rx="5"/>
       {model?.displayLevel !== 'hidden' && <><text x="4" y="9">Fab1</text><text x="49" y="9">Fab2</text><text x="45" y="59">Fc</text></>}
+    </svg>
+  }
+  const trace=model?.structureTrace
+  if (trace?.points && trace.points.length>1) {
+    return <svg className="structure-glyph protein-structure-trace" viewBox="0 0 72 64" role="img" aria-label={`${data.label} actual AlphaFold structure, mean confidence ${Math.round(trace.meanConfidence??0)} pLDDT`}>
+      <title>{`${data.label} · ${trace.source} ${trace.modelId} · mean ${Math.round(trace.meanConfidence??0)} pLDDT`}</title>
+      <g className="protein-trace-shadow">{trace.points.slice(1).map((point,index)=><line key={`shadow-${index}`} x1={trace.points[index][0]} y1={trace.points[index][1]} x2={point[0]} y2={point[1]}/>)}</g>
+      <g>{trace.points.slice(1).map((point,index)=><line key={index} className="protein-trace-segment" style={{stroke:confidenceColor((trace.points[index][2]+point[2])/2)}} x1={trace.points[index][0]} y1={trace.points[index][1]} x2={point[0]} y2={point[1]}/>)}</g>
+      <text className="structure-source-badge" x="69" y="61" textAnchor="end">AF</text>
     </svg>
   }
   if (template === 'single_pass_receptor' || template === 'multi_pass_receptor' || template === 'gpcr' || template === 'ion_channel') {

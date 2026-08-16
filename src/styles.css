@@ -407,6 +407,10 @@ button { color: inherit; }
 
 /* Protein / Construct Setup */
 .structural-icon { width: 48px; height: 48px; margin: -8px 2px -8px -7px; }
+.protein-structure-trace { overflow: visible; filter: drop-shadow(0 1px 1px rgba(22,48,73,.12)); }
+.protein-trace-shadow line { stroke: rgba(255,255,255,.86); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+.protein-trace-segment { stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; }
+.structure-source-badge { fill: #2358a8; font-size: 7px; font-weight: 800; paint-order: stroke; stroke: rgba(255,255,255,.9); stroke-width: 2px; }
 .structure-glyph { width: 100%; height: 100%; overflow: visible; }
 .structure-glyph text { fill: #61776e; font-size: 6px; font-weight: 800; }
 .structure-backbone,.domain-arm { fill: none; stroke: #72529a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }

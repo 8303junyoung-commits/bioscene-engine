@@ -1103,7 +1103,7 @@ function AppCanvas() {
     zip.file('collaboration.json', JSON.stringify(collaboration, null, 2))
     const attribution = assetAttribution(nodes)
     zip.file('ATTRIBUTIONS.txt', attribution.full || 'No third-party visual assets are bound in this scene.')
-    const provenanceCsv = ['node_id,label,kind,provenance', ...nodes.filter((node) => node.data.kind !== 'cell').map((node) => [node.id, node.data.label, node.data.kind, node.data.provenance ?? 'template'].map(csvCell).join(','))].join('\n')
+    const provenanceCsv = ['node_id,label,kind,provenance,structure_source,structure_model,structure_url,mean_plddt', ...nodes.filter((node) => node.data.kind !== 'cell').map((node) => { const trace=node.data.structuralModel?.structureTrace; return [node.id,node.data.label,node.data.kind,node.data.provenance??'template',trace?.source??'',trace?.modelId??'',trace?.entryUrl??'',trace?.meanConfidence??''].map(csvCell).join(',') })].join('\n')
     zip.file('PROVENANCE.csv', provenanceCsv)
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
     const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `bioscene-${templateId}-review.zip`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
