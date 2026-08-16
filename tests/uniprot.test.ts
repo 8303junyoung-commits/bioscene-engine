@@ -3,6 +3,7 @@ import { architectureForFormat, createMolecule, portsFromDomains, structuralMode
 import { parseSceneFile } from '../src/utils'
 import { defaultVisualizationProfile } from '../src/sceneViews'
 import { defaultFigureWorkspace } from '../src/workspace'
+import './core.test'
 
 const storage = new Map<string,string>()
 Object.defineProperty(globalThis,'localStorage',{ value:{ getItem:(key:string)=>storage.get(key)??null, setItem:(key:string,value:string)=>storage.set(key,value), removeItem:(key:string)=>storage.delete(key) }, configurable:true })

@@ -222,6 +222,7 @@ function AppCanvas() {
   const [continuousTool, setContinuousTool] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
+  const [mobilePanel, setMobilePanel] = useState<'assets' | 'inspector'>()
   const [contextTarget, setContextTarget] = useState<ContextTarget>()
   const [autosaveStatus, setAutosaveStatus] = useState<'saving' | 'saved'>('saved')
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
@@ -1167,6 +1168,8 @@ function AppCanvas() {
         </div>
         <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.14 · Interactive editor</small></div>
         <div className="top-actions">
+          <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'assets'} onClick={() => setMobilePanel((value) => value === 'assets' ? undefined : 'assets')}>Assets</button>
+          <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'inspector'} onClick={() => setMobilePanel((value) => value === 'inspector' ? undefined : 'inspector')}>Inspector</button>
           <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
           <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
           <button className="ghost-button" data-help="그림에 사용할 protein과 proprietary construct의 topology, visual template, functional domains, targets와 자동 생성 port를 정의합니다. Private construct는 외부 데이터베이스로 전송하지 않습니다." onClick={() => openMoleculeBuilder()}><Workflow size={16}/> Molecule builder</button>
@@ -1186,7 +1189,11 @@ function AppCanvas() {
       <EditorToolbar tool={drawingTool} continuous={continuousTool} onTool={(tool) => { setDrawingTool(tool); setDraftMembrane(undefined); setNotice(`${tool.replaceAll('_', ' ')} mode`) }} onContinuous={() => setContinuousTool((value) => !value)} onShortcuts={() => setShowShortcuts(true)} />
 
       <div className="workspace">
-        <Sidebar onAdd={addBiologicalNode} targetPanel={targetPanel} onBrowseAssets={() => setShowAssetBrowser(true)} onAddCallout={addCallout} onOpenModules={() => setShowModulePanel(true)} />
+        <button className={`mobile-panel-shade ${mobilePanel ? 'open' : ''}`} aria-label="Close side panel" onClick={() => setMobilePanel(undefined)} />
+        <div className={`sidebar-shell ${mobilePanel === 'assets' ? 'open' : ''}`}>
+          <button className="mobile-drawer-close" aria-label="Close assets panel" onClick={() => setMobilePanel(undefined)}>×</button>
+          <Sidebar onAdd={(kind) => { addBiologicalNode(kind); setMobilePanel(undefined) }} targetPanel={targetPanel} onBrowseAssets={() => { setShowAssetBrowser(true); setMobilePanel(undefined) }} onAddCallout={() => { addCallout(); setMobilePanel(undefined) }} onOpenModules={() => { setShowModulePanel(true); setMobilePanel(undefined) }} />
+        </div>
         <main className={`canvas-wrap tool-${drawingTool}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
           <ReactFlow<BioNodeType, BioEdge>
             nodes={nodes}
@@ -1263,20 +1270,23 @@ function AppCanvas() {
           {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
           {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
         </main>
-        <Inspector
-          selectedNode={selectedNode}
-          selectedEdgeId={selectedEdgeId}
-          selectedInteraction={selectedEdge?.data?.interaction}
-          selectedEdgeData={selectedEdge?.data}
-          onNodeChange={updateSelectedNode}
-          onEdgeChange={updateSelectedEdge}
-          onEdgeDataChange={updateSelectedEdgeData}
-          onDelete={deleteSelected}
-          onBrowseAssets={() => setShowAssetBrowser(true)}
-          onDetachAsset={detachAsset}
-          onEditStructure={() => openMoleculeBuilder(selectedNode)}
-          constraintMode={mode}
-        />
+        <div className={`inspector-shell ${mobilePanel === 'inspector' ? 'open' : ''}`}>
+          <button className="mobile-drawer-close" aria-label="Close inspector panel" onClick={() => setMobilePanel(undefined)}>×</button>
+          <Inspector
+            selectedNode={selectedNode}
+            selectedEdgeId={selectedEdgeId}
+            selectedInteraction={selectedEdge?.data?.interaction}
+            selectedEdgeData={selectedEdge?.data}
+            onNodeChange={updateSelectedNode}
+            onEdgeChange={updateSelectedEdge}
+            onEdgeDataChange={updateSelectedEdgeData}
+            onDelete={deleteSelected}
+            onBrowseAssets={() => setShowAssetBrowser(true)}
+            onDetachAsset={detachAsset}
+            onEditStructure={() => openMoleculeBuilder(selectedNode)}
+            constraintMode={mode}
+          />
+        </div>
       </div>
       {contextTarget && <ObjectContextMenu target={contextTarget} isMembrane={nodes.find((node) => node.id === contextTarget.id)?.data.kind === 'membrane'} locked={!!nodes.find((node) => node.id === contextTarget.id)?.data.locked} onAction={handleContextAction}/>}
       {showShortcuts && <div className="shortcut-overlay" onMouseDown={() => setShowShortcuts(false)}><section className="shortcut-card" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="eyebrow">EDITOR HELP</span><h2>Keyboard shortcuts</h2></div><button onClick={() => setShowShortcuts(false)}>×</button></header><div><kbd>V</kbd><span>Select</span><kbd>H</kbd><span>Pan</span><kbd>M</kbd><span>Membrane</span><kbd>C</kbd><span>Cell</span><kbd>P</kbd><span>Protein</span><kbd>A</kbd><span>Antibody</span><kbd>T</kbd><span>Text</span><kbd>Del</kbd><span>Delete selection</span><kbd>⌘/Ctrl Z</kbd><span>Undo</span><kbd>⇧ ⌘/Ctrl Z</kbd><span>Redo</span><kbd>⌘/Ctrl C · V</kbd><span>Copy · Paste</span><kbd>⌘/Ctrl D</kbd><span>Duplicate</span><kbd>Esc</kbd><span>Cancel · Select mode</span></div></section></div>}

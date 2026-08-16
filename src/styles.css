@@ -8,7 +8,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 1180px; min-height: 100vh; overflow: hidden; }
+body { margin: 0; min-width: 0; min-height: 100vh; overflow: hidden; }
 button, input, select { font: inherit; }
 button { color: inherit; }
 
@@ -18,7 +18,7 @@ button { color: inherit; }
 .context-help-top { transform: translate(-50%, -100%); }
 .context-help::before { content: '도움말'; display: block; margin-bottom: 3px; color: #8ed4b7; font-size: 8px; font-weight: 850; letter-spacing: .13em; }
 
-.app-shell { height: 100vh; display: grid; grid-template-rows: 64px auto 1fr; background: #f6f9f7; }
+.app-shell { height: 100vh; display: grid; grid-template-rows: 64px auto 1fr; overflow: hidden; background: #f6f9f7; }
 .topbar { display: grid; grid-template-columns: 200px minmax(150px, 1fr) auto; align-items: center; border-bottom: 1px solid #dce6e1; background: rgba(255,255,255,.96); padding: 0 12px; z-index: 10; }
 .brand { display: flex; align-items: center; gap: 11px; font-family: Manrope, sans-serif; letter-spacing: -.03em; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; color: white; background: linear-gradient(145deg,#245f4e,#3d9175); box-shadow: 0 6px 18px rgba(34,98,78,.22); }
@@ -36,6 +36,8 @@ button { color: inherit; }
 .primary-button:hover { background: #174c3d; transform: translateY(-1px); }
 
 .workspace { min-height: 0; display: grid; grid-template-columns: 240px 1fr 270px; }
+.sidebar-shell,.inspector-shell { display: contents; }
+.mobile-drawer-button,.mobile-drawer-close,.mobile-panel-shade { display: none; }
 .sidebar,.inspector { background: #fbfdfc; z-index: 5; padding: 22px 17px; overflow-y: auto; }
 .sidebar { border-right: 1px solid #dce6e1; }
 .inspector { border-left: 1px solid #dce6e1; }
@@ -177,6 +179,42 @@ button { color: inherit; }
   .project-title small { display: none; }
   .top-actions { gap: 5px; }
   .ghost-button,.primary-button { padding-inline: 8px; }
+}
+
+@media (max-width: 1100px) {
+  .app-shell { grid-template-rows: 56px auto minmax(0,1fr); }
+  .topbar { display: flex; gap: 10px; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+  .brand { flex: 0 0 auto; }
+  .project-title { flex: 1 0 170px; justify-content: flex-start; }
+  .project-title small { display: none; }
+  .top-actions { flex: 0 0 auto; }
+  .mobile-drawer-button { display: inline-flex; }
+  .workspace { position: relative; grid-template-columns: minmax(0,1fr); }
+  .canvas-wrap { grid-column: 1; }
+  .sidebar-shell,.inspector-shell { display: block; position: fixed; top: 118px; bottom: 0; z-index: 5200; width: min(300px,88vw); transition: transform .18s ease; pointer-events: none; }
+  .sidebar-shell { left: 0; transform: translateX(-105%); }
+  .inspector-shell { right: 0; transform: translateX(105%); }
+  .sidebar-shell.open,.inspector-shell.open { transform: translateX(0); pointer-events: auto; }
+  .sidebar-shell .sidebar,.inspector-shell .inspector { box-sizing: border-box; width: 100%; height: 100%; padding-top: 48px; box-shadow: 0 18px 55px rgba(14,43,33,.24); }
+  .mobile-drawer-close { display: grid; place-items: center; position: absolute; z-index: 3; top: 10px; right: 10px; width: 30px; height: 30px; border: 1px solid #ccdbd5; border-radius: 8px; background: white; color: #365d4f; font-size: 20px; cursor: pointer; }
+  .mobile-panel-shade { position: fixed; inset: 118px 0 0; z-index: 5100; border: 0; background: rgba(17,44,35,.24); opacity: 0; pointer-events: none; }
+  .mobile-panel-shade.open { display: block; opacity: 1; pointer-events: auto; }
+  .canvas-tools { max-width: calc(100vw - 28px); overflow-x: auto; }
+  .notice-bar { min-width: 0; width: calc(100vw - 28px); box-sizing: border-box; }
+}
+
+@media (max-width: 600px) {
+  .topbar { padding-inline: 8px; }
+  .brand > span:last-child,.project-title { display: none; }
+  .top-actions .ghost-button:not(.mobile-drawer-button):not(.icon-only),.top-actions .primary-button { font-size: 0; min-width: 34px; padding-inline: 8px; }
+  .top-actions .ghost-button:not(.mobile-drawer-button):not(.icon-only) svg,.top-actions .primary-button svg { margin: 0; }
+  .editor-toolbar { padding-inline: 8px; }
+  .scene-badge.template-picker { max-width: calc(100vw - 24px); overflow-x: auto; }
+  .template-picker select { max-width: 125px; }
+  .notice-bar > div,.active-tool-status span { display: none; }
+  .notice-bar { justify-content: center; text-align: center; }
+  .layers-panel { top: 154px; max-width: calc(100vw - 24px); }
+  .shortcut-card { width: calc(100vw - 28px); box-sizing: border-box; }
 }
 /* Phase 5 smart asset bank */
 .smart-library-button { margin: 14px 14px 5px; padding: 12px 14px; border: 1px solid #7aa694; border-radius: 10px; background: #edf7f2; color: #245848; font-weight: 700; display: flex; justify-content: space-between; cursor: pointer; }
