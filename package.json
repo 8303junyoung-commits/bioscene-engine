@@ -9,7 +9,13 @@
     "build": "tsc -b && vite build --configLoader runner",
     "preview": "vite preview --configLoader runner",
     "lint": "eslint .",
-    "test": "node scripts/run-uniprot-tests.mjs && node scripts/run-canvas-display-tests.mjs"
+    "test": "node scripts/run-uniprot-tests.mjs && node scripts/run-canvas-display-tests.mjs",
+    "qa:smoke": "node qa/runner.mjs --mode smoke",
+    "qa:full": "node qa/runner.mjs --mode full",
+    "qa:visual": "node qa/runner.mjs --mode visual",
+    "qa:explore": "node qa/runner.mjs --mode explore",
+    "qa:report": "node qa/report-latest.mjs",
+    "qa:install": "playwright install chromium"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.3",
@@ -25,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@playwright/test": "^1.62.1",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",

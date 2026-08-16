@@ -5,6 +5,11 @@ dist/
 !.env.example
 .pnpm-deploy-store/
 .tool-cache/
+.qa-browsers/
+.qa-deps/
+qa/reports/
+qa/screenshots/
+qa/.cache/
 work/
 *.zip
 supabase/.branches/
