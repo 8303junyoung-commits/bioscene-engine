@@ -1212,8 +1212,8 @@ function AppCanvas() {
             onSelectionChange={({ nodes: selectedNodes, edges: selectedEdges }) => { const ids = selectedNodes.map((node) => node.id); setAlignmentNodeIds(ids); setSelectedNodeId(ids[0]); setSelectedEdgeId(selectedEdges[0]?.id) }}
             onPaneClick={handlePaneClick}
             onNodeDragStop={(_, node) => handleNodeDragStop(node)}
-            panOnDrag={drawingTool === 'pan'}
-            selectionOnDrag={drawingTool === 'select'}
+            panOnDrag={drawingTool === 'pan' || drawingTool === 'select'}
+            selectionOnDrag={false}
             nodesDraggable={drawingTool === 'select'}
             nodesConnectable={drawingTool === 'select'}
             elementsSelectable={drawingTool === 'select'}
@@ -1223,6 +1223,7 @@ function AppCanvas() {
             fitViewOptions={{ padding: 0.12 }}
             minZoom={0.45}
             maxZoom={1.8}
+            selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
             deleteKeyCode={null}
           >
@@ -1264,7 +1265,7 @@ function AppCanvas() {
             <Panel position="top-right" className="scene-badge template-picker" data-help="왼쪽은 현재 biology를 보는 Scene scope이고 오른쪽은 시작용 biology template입니다. Scene 변경은 개체를 삭제하지 않지만 template 변경은 확인 후 전체 장면을 교체합니다."><LayoutTemplate size={14}/><select aria-label="Scene type" value={visualizationProfile.sceneType} onChange={(event) => changeVisualizationProfile({ ...visualizationProfile, sceneType: event.target.value as VisualizationProfile['sceneType'] })}>{Object.entries(sceneTypeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
-            <Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>{drawingTool === 'select' ? 'Click or drag to select · Shift for multi-select' : drawingTool === 'pan' ? 'Drag canvas to move view · ESC to exit' : continuousTool ? 'Continuous creation · ESC to exit' : 'Create once · ESC to cancel'}</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>
+            <Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>{drawingTool === 'select' ? 'Drag blank canvas to move view · Shift+drag to box-select' : drawingTool === 'pan' ? 'Drag canvas to move view · ESC to exit' : continuousTool ? 'Continuous creation · ESC to exit' : 'Create once · ESC to cancel'}</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>
           </ReactFlow>
           <LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>
           {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}

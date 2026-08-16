@@ -10,7 +10,7 @@ type Props = {
 }
 
 const help: Record<DrawingTool, string> = {
-  select: '선택 도구(V). 클릭으로 선택하고 드래그로 이동합니다. Shift+클릭은 다중 선택이며 ESC를 누르면 언제든 이 모드로 돌아옵니다.',
+  select: '선택 도구(V). 개체는 직접 드래그해 옮기고, 빈 캔버스는 드래그해 그림 전체 화면을 중앙으로 이동합니다. Shift+드래그는 영역 선택, Shift+클릭은 다중 선택입니다.',
   pan: '이동 도구(H). 캔버스를 드래그해 화면을 이동합니다. 오브젝트 위치는 바뀌지 않습니다.',
   freehand_membrane: '막 도구(M). 캔버스를 드래그해 자유 곡선 막을 만듭니다. 한 번 그리면 Select로 돌아가며 핀을 켜면 계속 그립니다.',
   straight_membrane: '직선 막. 시작점에서 끝점까지 드래그하면 직선 막이 만들어집니다.',
@@ -54,3 +54,4 @@ export function EditorToolbar({ tool, continuous, onTool, onContinuous, onShortc
     <button className="editor-help-button" onClick={onShortcuts} data-help="선택·이동·복제·삭제·Undo 등 데스크톱 편집기 단축키를 한눈에 표시합니다."><HelpCircle size={16}/><Sparkles size={10}/></button>
   </nav>
 }
+
