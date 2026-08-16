@@ -28,7 +28,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint -- --max-warnings 0
+      - run: pnpm exec eslint . --max-warnings 0
       - run: pnpm test
       - run: pnpm build
 
