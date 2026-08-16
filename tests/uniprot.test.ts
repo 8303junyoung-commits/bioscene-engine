@@ -32,6 +32,9 @@ mode='down'; await assert.rejects(()=>lookupUniProt(createMolecule('SERVICE-DOWN
 
 storage.clear(); mode='ok'; current=il18; const soluble=await lookupUniProt(createMolecule('IL18','public')); assert.equal(soluble.molecule?.structuralModel.classification,'secreted_cytokine'); assert.equal(soluble.molecule?.structuralModel.template,'cytokine')
 const edited=soluble.molecule!; edited.structuralModel.domains[0].function='Binding'; edited.structuralModel.domains[0].functionSource='user'; edited.structuralModel.modified=true; const reloaded=JSON.parse(JSON.stringify(edited)); assert.equal(reloaded.structuralModel.domains[0].function,'Binding'); assert.equal(reloaded.structuralModel.domains[0].functionSource,'user'); assert.equal(reloaded.originalStructuralModel.modified,false)
+const { uniProtProvider } = await import('../src/integrations/uniprot')
+const normalizedProtein=uniProtProvider.normalize(edited); assert.equal(normalizedProtein?.accession,'Q14116'); assert.equal(normalizedProtein?.name,'Interleukin-18'); assert.ok(normalizedProtein?.features.some((item)=>item.type==='Domain'&&item.start===20&&item.source==='UniProt'))
+assert.equal(uniProtProvider.normalize(createMolecule('Local only')),undefined,'provider must not invent a remote protein definition')
 
 const nameOnly=createMolecule('IL18RB receptor bispecific antibody')
 assert.equal(nameOnly.entityClass,'unknown_custom'); assert.equal(nameOnly.topology,'unknown'); assert.equal(nameOnly.saveStatus,'unclassified')
@@ -48,5 +51,5 @@ const legacy=createMolecule('Legacy proprietary receptor'); const legacyMolecule
 const migrated=parseSceneFile({schema:'bioscene.scene.v0.13',title:'Legacy',createdAt:new Date().toISOString(),constraintMode:'biological',nodes:[],edges:[],stylePreset:'scientific-clean',review:{status:'draft',reviewers:[],notes:'',updatedAt:new Date().toISOString()},literature:[],collaboration:{participants:[],comments:[],activity:[]},visualizationProfile:defaultVisualizationProfile,views:[],moleculeLibrary:[legacyMolecule],customFunctions:[],workspace:defaultFigureWorkspace})
 assert.equal(migrated?.schema,'bioscene.scene.v0.14'); assert.equal(migrated?.moleculeLibrary[0].entityClass,'unknown_custom'); assert.equal(migrated?.moleculeLibrary[0].saveStatus,'needs_review'); assert.equal(migrated?.moleculeLibrary[0].topologyConfirmed,false)
 
-console.log('Model tests passed: 10+ identity, confirmation, topology, format, valency, specificity, ports, provenance, privacy, and migration scenarios')
+console.log('Model tests passed: identity, confirmation, topology, format, valency, specificity, ports, provenance, provider normalization, privacy, and migration scenarios')
 

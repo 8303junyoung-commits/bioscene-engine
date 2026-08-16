@@ -1,0 +1,2 @@
+export { ProtVistaPanel } from './ProtVistaPanel'
+

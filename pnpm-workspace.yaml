@@ -2,7 +2,8 @@ packages:
   - '.'
 
 allowBuilds:
+  '@scarf/scarf': false
+  canvas: false
   esbuild: true
+  gl: false
 
-onlyBuiltDependencies:
-  - esbuild

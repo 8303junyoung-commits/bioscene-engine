@@ -32,7 +32,8 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Delete, duplicate, internal copy/paste, visibility, position locking, z-order controls, and global Undo/Redo keyboard workflows
 - Re-editable membrane paths with draggable/addable/removable control points, endpoint extension/trim, straightening, splitting, inside/outside flip, and anchored-receptor following
 - Add/delete objects and interactions
-- Protein & Construct Setup with a server-side UniProt proxy, human-reviewed candidate selection, accession lookup, progress/error/retry states, bulk lookup, offline cache, sequence + feature provenance, topology classification, editable structural previews, generated ports, and public/private separation
+- Protein & Construct Setup with a server-side UniProt proxy, human-reviewed candidate selection, accession lookup, progress/error/retry states, offline cache, sequence + feature provenance, topology classification, editable structural previews, generated ports, and public/private separation
+- Lazy-loaded ProtVista annotation reference viewer with a UniProt provider adapter, manual public-accession fallback, click/feature selection bridge, and explicit conversion into provenance-bearing BioScene domains
 - Structural SVG rendering for soluble proteins, single-pass receptors, IgG and bispecific antibody constructs
 - Scene save/load in `bioscene.scene.v0.14` JSON, including explicit molecule identity, origin, topology, construct architecture and save state, plus figure workspace geometry, biological membrane paths and anchors, molecule libraries, functional vocabularies, visualization profiles, saved views, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1` through `v0.13` scenes
 - Debounced browser-local autosave and automatic restore
@@ -80,6 +81,8 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Expanded review ZIP with `literature.json` and `collaboration.json`
 
 The active editor visuals remain original CSS/SVG glyphs. The project now includes 1,526 security-screened, license-indexed biological SVGs from Bioicons across human physiology, tissues, cell types, blood/immunology, receptors, membranes, intracellular components, oncology, genetics, and related categories. Open `asset-catalog.html` through the app server or use the **Browse 1,526 licensed SVGs** link in the editor. See `THIRD_PARTY_ASSETS.md` for provenance rules.
+
+Open-source adoption decisions, verified upstream links, license boundaries, bundle costs, and the staged integration roadmap are documented in [`docs/OPEN_SOURCE_COMPONENT_AUDIT.md`](docs/OPEN_SOURCE_COMPONENT_AUDIT.md) and [`docs/OPEN_SOURCE_INTEGRATION_PLAN.md`](docs/OPEN_SOURCE_INTEGRATION_PLAN.md).
 
 ## Run
 
