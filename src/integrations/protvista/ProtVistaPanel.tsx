@@ -65,7 +65,7 @@ export function ProtVistaPanel({ molecule, onAddDomain }: Props) {
       element.addEventListener('protvista-event', onReady)
       element.addEventListener('change', onChange)
       host.replaceChildren(element)
-      window.setTimeout(() => { if (!cancelled) { setStatus((current) => current === 'loading' ? 'ready' : current); setMessage((current) => current || 'ProtVista viewer loaded') } }, 2500)
+      window.setTimeout(() => { if (!cancelled) { setStatus((current) => current === 'loading' ? 'ready' : current); setMessage((current) => current.includes('불러오는 중') ? 'ProtVista viewer loaded · annotation 응답 대기 중' : current || 'ProtVista viewer loaded') } }, 2500)
     }).catch((error: unknown) => {
       if (cancelled) return
       setStatus('failed')

@@ -84,7 +84,7 @@ The new `src/integrations/*` boundary should be the only place where an external
 
 ## 4. ProtVista spike findings
 
-`protvista-uniprot@4.9.1` is pinned rather than loaded from a CDN. It is lazy-loaded only after the user opens the viewer. The production build isolates it in a 3.73 MB minified / 1.10 MB gzip chunk, so it does not increase the initial JavaScript chunk but remains a material on-demand cost. The component runs in light DOM and directly calls EBI endpoints, so BioScene's Content Security Policy must continue to allow HTTPS connections. The structure track is disabled in the first integration to limit scope.
+`protvista-uniprot@4.9.1` is pinned rather than loaded from a CDN. It is lazy-loaded only after the user opens the viewer. The production build isolates it in a 3.73 MB minified / 1.10 MB gzip chunk, so it does not increase the initial JavaScript chunk but remains a material on-demand cost. The component runs in light DOM and directly calls EBI endpoints. Production CSP therefore allowlists only the required `www.ebi.ac.uk` and `alphafold.ebi.ac.uk` origins in addition to Supabase; it does not open a generic HTTPS wildcard. The structure track is disabled in the first integration to limit scope.
 
 The meta-component documents `protvista-event` for data availability. Its Nightingale child tracks also emit bubbling `change` events with `eventType: "click"` and a feature payload. BioScene listens defensively to that event, but also presents the already validated UniProt feature list as a deterministic fallback because the exact payload varies by track. Only the explicit **Add as BioScene domain** action mutates the molecule.
 
