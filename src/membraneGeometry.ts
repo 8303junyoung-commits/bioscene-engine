@@ -40,6 +40,21 @@ export function membranePathD(points: MembranePoint[]) {
   const last=points.at(-1)!;return `${value} T ${last.x} ${last.y}`
 }
 
+export function offsetMembranePoints(points: MembranePoint[], offset: number) {
+  return points.map((point,index) => {
+    const before=points[Math.max(0,index-1)]??point; const after=points[Math.min(points.length-1,index+1)]??point
+    const dx=after.x-before.x; const dy=after.y-before.y; const length=Math.hypot(dx,dy)||1
+    return {x:point.x-(dy/length)*offset,y:point.y+(dx/length)*offset}
+  })
+}
+
+export function membraneLipidSamples(points: MembranePoint[], spacing = 14) {
+  if (points.length<2) return []
+  const length=points.slice(1).reduce((sum,point,index)=>sum+distance(points[index],point),0)
+  const count=Math.max(2,Math.min(180,Math.round(length/Math.max(8,spacing))))
+  return Array.from({length:count},(_,index)=>pathPointAt(points,(index+.5)/count))
+}
+
 export function pathPointAt(points: MembranePoint[], pathPosition: number) {
   if (points.length < 2) return { point: points[0] ?? {x:0,y:0}, angle: 0 }
   const segments=points.slice(1).map((point,index)=>distance(points[index],point));const total=segments.reduce((sum,value)=>sum+value,0)
@@ -63,3 +78,4 @@ export function nearestPathPoint(points: MembranePoint[], target: MembranePoint)
   }
   return best
 }
+

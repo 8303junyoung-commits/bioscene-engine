@@ -849,7 +849,7 @@ function AppCanvas() {
     const maxX = Math.max(...smoothed.map((point) => point.x)); const maxY = Math.max(...smoothed.map((point) => point.y)); const pad = 30
     const path = smoothed.map((point) => ({ x: point.x - minX + pad, y: point.y - minY + pad }))
     const id = uid('membrane')
-    const membrane: MembraneDefinition = { id, name: 'Plasma membrane', boundaryType: 'plasma_membrane', path, sideA: 'extracellular', sideB: 'cytoplasm', closed: false, style: 'standard', thickness: 12, smoothing: 65, anchors: [] }
+    const membrane: MembraneDefinition = { id, name: 'Plasma membrane', boundaryType: 'plasma_membrane', path, sideA: 'extracellular', sideB: 'cytoplasm', closed: false, style: 'detailed', thickness: 14, smoothing: 65, anchors: [] }
     const node: BioNodeType = { id, type: 'membrane', deletable: false, selected: true, position: { x: minX - pad, y: minY - pad }, style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) }, data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }) }
     setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); setSelectedNodeId(id); setAlignmentNodeIds([id]); if (!continuousTool) setDrawingTool('select'); setNotice(`Biological membrane created${continuousTool ? '. Draw again or press ESC to exit.' : '. Drag a receptor near it to snap.'}`)
   }, [continuousTool, draftMembrane, drawingTool])

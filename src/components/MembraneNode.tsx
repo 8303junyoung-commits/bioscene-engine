@@ -1,7 +1,7 @@
 import { NodeToolbar, useReactFlow, type NodeProps } from '@xyflow/react'
 import { Copy, FlipVertical2, Pencil, Scissors, Trash2 } from 'lucide-react'
 import type { BioNode } from '../types'
-import { membranePathD } from '../membraneGeometry'
+import { membraneLipidSamples, membranePathD, offsetMembranePoints } from '../membraneGeometry'
 
 const action = (id: string, name: string, detail: Record<string, unknown> = {}) => window.dispatchEvent(new CustomEvent('bioscene:object-action', { detail: { id, action: name, ...detail } }))
 
@@ -11,6 +11,10 @@ export function MembraneNode({ id, data, selected, width, height }: NodeProps<Bi
   if (!membrane) return null
   const path = membranePathD(membrane.path)
   const offset = Math.max(2, membrane.thickness / 2)
+  const outerPath = membranePathD(offsetMembranePoints(membrane.path,-offset))
+  const innerPath = membranePathD(offsetMembranePoints(membrane.path,offset))
+  const lipids = membraneLipidSamples(membrane.path,membrane.style==='detailed'?11:17)
+  const headRadius=Math.max(1.4,Math.min(2.5,offset*.32)); const tailGap=Math.max(.8,headRadius*.55)
   const startPointDrag = (event: React.PointerEvent<HTMLButtonElement>, index: number) => {
     event.stopPropagation(); event.preventDefault()
     if (event.altKey && membrane.path.length > 2) { action(id, 'remove-point', { index }); return }
@@ -32,9 +36,13 @@ export function MembraneNode({ id, data, selected, width, height }: NodeProps<Bi
       <path className="membrane-hit" d={path}/>
       {membrane.style === 'simple'
         ? <path className="membrane-band" style={{ strokeWidth: membrane.thickness }} d={path}/>
-        : <><path className="membrane-leaflet outer" style={{ transform: `translateY(-${offset}px)` }} d={path}/><path className="membrane-leaflet inner" style={{ transform: `translateY(${offset}px)` }} d={path}/>{membrane.style === 'detailed' && <path className="membrane-lipids" style={{ strokeWidth: Math.max(8, membrane.thickness * 2) }} d={path}/>}</>}
+        : <><path className="membrane-core" d={path}/><path className="membrane-leaflet outer" d={outerPath}/><path className="membrane-leaflet inner" d={innerPath}/><g className="membrane-phospholipids">{lipids.map((sample,index)=><g className="phospholipid-pair" key={index} transform={`translate(${sample.point.x} ${sample.point.y}) rotate(${sample.angle-90})`}>
+          <circle className="lipid-head outer" cx="0" cy={-offset} r={headRadius}/><line className="lipid-tail" x1={-tailGap} y1={-offset+headRadius} x2={-tailGap*.55} y2="-0.7"/><line className="lipid-tail" x1={tailGap} y1={-offset+headRadius} x2={tailGap*.55} y2="-0.7"/>
+          <circle className="lipid-head inner" cx="0" cy={offset} r={headRadius}/><line className="lipid-tail" x1={-tailGap} y1={offset-headRadius} x2={-tailGap*.55} y2="0.7"/><line className="lipid-tail" x1={tailGap} y1={offset-headRadius} x2={tailGap*.55} y2="0.7"/>
+        </g>)}</g></>}
     </svg>
     {selected && <div className="membrane-control-points" data-export-exclude="true">{membrane.path.map((point, index) => <button key={`${index}-${point.x}-${point.y}`} className={index === 0 || index === membrane.path.length - 1 ? 'endpoint' : ''} style={{ left: point.x, top: point.y }} onPointerDown={(event) => startPointDrag(event, index)} title={index === 0 || index === membrane.path.length - 1 ? '끝점을 드래그해 막을 연장하거나 줄입니다.' : '드래그해 경로를 수정합니다. Alt+클릭으로 삭제합니다.'}/>)}</div>}
     <span className="membrane-side side-a">{membrane.sideA}</span><span className="membrane-side side-b">{membrane.sideB}</span>
   </div>
 }
+

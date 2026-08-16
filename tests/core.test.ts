@@ -5,6 +5,7 @@ import { cloneTemplate, sceneTemplates } from '../src/data'
 import { parseMechanism, sceneFromMechanism } from '../src/mechanism'
 import type { SceneTemplateId } from '../src/types'
 import { biologicalWarnings, regionBoundsFor, safeHttpUrl } from '../src/utils'
+import { membraneLipidSamples, offsetMembranePoints } from '../src/membraneGeometry'
 
 for (const [id, template] of Object.entries(sceneTemplates)) {
   assert.deepEqual(biologicalWarnings(template.nodes, template.edges), [], `${id} must be scientifically and spatially valid`)
@@ -28,6 +29,11 @@ assert.equal(safeHttpUrl('https://example.org/paper')?.startsWith('https://examp
 assert.equal(safeAssetFile('../secret.svg'), undefined)
 assert.equal(safeAssetFile('folder\\secret.svg'), undefined)
 assert.equal(safeAssetFile('proteins/receptor.svg'), 'proteins/receptor.svg')
+
+const horizontalMembrane=[{x:0,y:20},{x:100,y:20}]
+assert.deepEqual(offsetMembranePoints(horizontalMembrane,5),[{x:0,y:25},{x:100,y:25}])
+const lipidSamples=membraneLipidSamples(horizontalMembrane,20)
+assert.equal(lipidSamples.length,5); assert.equal(lipidSamples.every((sample)=>sample.point.y===20&&sample.angle===90),true)
 
 assert.throws(() => sanitizedEndpoint('http://example.org/api'))
 assert.equal(sanitizedEndpoint('https://user:pass@example.org/api?token=secret#fragment'), 'https://example.org/api')
