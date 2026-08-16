@@ -20,6 +20,16 @@ export type ObjectVisibility = 'visible' | 'hidden_by_scope' | 'manually_hidden'
 export type PositionMode = 'auto' | 'manual' | 'pinned'
 export type MoleculePrivacy = 'public' | 'private'
 export type MoleculeClass = 'protein' | 'antibody' | 'engineered_construct'
+export type MoleculeEntityClass = 'natural_protein' | 'mutant_protein' | 'antibody' | 'fusion_protein' | 'receptor_trap' | 'cytokine_ligand' | 'enzyme' | 'peptide' | 'adc' | 'protein_drug_conjugate' | 'engineered_protein' | 'unknown_custom'
+export type MoleculeOrigin = 'natural' | 'engineered' | 'mutant' | 'synthetic'
+export type MoleculeTopology = 'soluble' | 'secreted' | 'single_pass_membrane' | 'multi_pass_membrane' | 'membrane_associated' | 'intracellular' | 'nuclear' | 'organelle_associated' | 'unknown'
+export type MoleculeSaveStatus = 'unclassified' | 'draft' | 'saved' | 'needs_review'
+export type MoleculeFieldSource = 'user' | 'UniProt' | 'BioScene inference' | 'migration'
+export type AntibodyFormat = 'igg' | 'fab' | 'fab2' | 'scfv' | 'vhh' | 'scfv_fc' | 'fab_fc' | 'bispecific' | 'trispecific' | 'multispecific' | 'multivalent' | 'antibody_fusion' | 'custom_antibody'
+export type BindingUnitType = 'Fab' | 'scFv' | 'VHH' | 'protein_domain'
+export type ConstructComponentType = 'binding_unit' | 'Fc' | 'protein_domain' | 'linker' | 'payload'
+export type ArchitectureSymmetry = 'symmetric' | 'asymmetric' | 'custom'
+export type AntibodyStructuralFamily = 'igg_like' | 'dvd_igg' | 'igg_appended_scfv' | 'cross_arm' | 'tandem_scfv' | 'fab_scfv_fusion' | 'vhh_multispecific' | 'fc_multivalent' | 'custom'
 export type ProteinTopologyClass = 'soluble' | 'single_pass_receptor' | 'multi_pass_membrane' | 'secreted_cytokine' | 'enzyme' | 'unknown'
 export type ProteinVisualScaling = 'schematic' | 'sequence_length'
 export type StructuralTemplate = 'globular' | 'cytokine' | 'enzyme' | 'single_pass_receptor' | 'multi_pass_receptor' | 'gpcr' | 'ion_channel' | 'receptor_complex' | 'igg' | 'fab' | 'fab2' | 'bispecific_igg' | 'asymmetric_bispecific' | 'fc_fusion' | 'receptor_trap' | 'custom_construct'
@@ -96,6 +106,44 @@ export interface StructuralModel {
   classification?: ProteinTopologyClass
   visualScaling?: ProteinVisualScaling
   modified?: boolean
+  architecture?: ConstructArchitecture
+}
+
+export interface MoleculeSpecificity {
+  id: string
+  label: string
+  target: string
+  valency: number
+  unitType: BindingUnitType
+  function: string
+  epitope?: string
+  affinityLabel?: string
+}
+
+export interface ConstructComponent {
+  id: string
+  type: ConstructComponentType
+  label: string
+  specificityId?: string
+  target?: string
+  function?: string
+  sourceProtein?: string
+  domainName?: string
+  attachment?: string
+  order: number
+}
+
+export interface ConstructArchitecture {
+  kind: 'antibody' | 'fusion' | 'custom'
+  antibodyFormat?: AntibodyFormat
+  iggSubtype?: 'IgG1' | 'IgG2' | 'IgG3' | 'IgG4' | 'Custom Fc'
+  scfvOrientation?: 'VH-linker-VL' | 'VL-linker-VH'
+  valencyPreset?: '1+1' | '2+1' | '1+2' | '2+2' | 'custom'
+  symmetry?: ArchitectureSymmetry
+  structuralFamily?: AntibodyStructuralFamily
+  fc: boolean
+  specificities: MoleculeSpecificity[]
+  components: ConstructComponent[]
 }
 
 export interface UniProtFeatureRecord {
@@ -111,6 +159,19 @@ export interface MoleculeDefinition {
   name: string
   privacy: MoleculePrivacy
   moleculeClass: MoleculeClass
+  entityClass: MoleculeEntityClass
+  origin: MoleculeOrigin
+  topology: MoleculeTopology
+  saveStatus: MoleculeSaveStatus
+  identitySource: MoleculeFieldSource
+  identityConfidence?: AnnotationConfidence
+  topologySource?: MoleculeFieldSource
+  topologyConfidence?: AnnotationConfidence
+  topologyConfirmed: boolean
+  suggestedEntityClass?: MoleculeEntityClass
+  suggestedTopology?: MoleculeTopology
+  parentMoleculeId?: string
+  architecture?: ConstructArchitecture
   geneName?: string
   proteinName?: string
   species?: string
@@ -126,6 +187,7 @@ export interface MoleculeDefinition {
   lookupStatus: 'local' | 'suggested' | 'searching' | 'selecting' | 'enriched' | 'failed'
   lookupMessage?: string
   updatedAt: string
+  savedAt?: string
 }
 
 export interface BioNodeFields {
@@ -285,7 +347,7 @@ export interface ParsedMechanism {
 }
 
 export interface SceneFile {
-  schema: 'bioscene.scene.v0.13'
+  schema: 'bioscene.scene.v0.14'
   title: string
   templateId?: SceneTemplateId
   createdAt: string
@@ -381,3 +443,4 @@ export interface SceneRevision {
   createdAt: string
   scene: SceneFile
 }
+

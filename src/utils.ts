@@ -2,7 +2,7 @@ import type { ActivityEvent, AssetReference, BioEdge, BioNode, CollaborationComm
 import { createBioData, stateAllowsCompartment, validateConnection } from './biology'
 import { markerForInteraction } from './visualGrammar'
 import { applyVisualizationProfile, defaultVisualizationProfile } from './sceneViews'
-import { defaultStructuralModel } from './molecules'
+import { architectureForFormat, defaultStructuralModel } from './molecules'
 import { defaultFigureWorkspace, sanitizeWorkspace } from './workspace'
 
 const nodeWidth = 132
@@ -72,7 +72,7 @@ function isAssetReference(value: unknown): value is AssetReference {
 export function isSceneFile(value: unknown): value is SceneFile {
   if (!value || typeof value !== 'object') return false
   const scene = value as Partial<SceneFile>
-  if (scene.schema !== 'bioscene.scene.v0.13' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
+  if (scene.schema !== 'bioscene.scene.v0.14' || !Array.isArray(scene.nodes) || !Array.isArray(scene.edges)) return false
   if (scene.constraintMode !== 'biological' && scene.constraintMode !== 'free') return false
   if (typeof scene.title !== 'string' || typeof scene.createdAt !== 'string') return false
   if (!['scientific-clean', 'journal-light', 'presentation-dark'].includes(scene.stylePreset ?? 'scientific-clean')) return false
@@ -102,6 +102,11 @@ export function isSceneFile(value: unknown): value is SceneFile {
 function isMoleculeDefinition(value: unknown): value is MoleculeDefinition {
   return isObject(value) && typeof value.id === 'string' && typeof value.name === 'string'
     && ['public','private'].includes(String(value.privacy)) && ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass))
+    && ['natural_protein','mutant_protein','antibody','fusion_protein','receptor_trap','cytokine_ligand','enzyme','peptide','adc','protein_drug_conjugate','engineered_protein','unknown_custom'].includes(String(value.entityClass))
+    && ['natural','engineered','mutant','synthetic'].includes(String(value.origin))
+    && ['soluble','secreted','single_pass_membrane','multi_pass_membrane','membrane_associated','intracellular','nuclear','organelle_associated','unknown'].includes(String(value.topology))
+    && ['unclassified','draft','saved','needs_review'].includes(String(value.saveStatus))
+    && ['user','UniProt','BioScene inference','migration'].includes(String(value.identitySource)) && typeof value.topologyConfirmed === 'boolean'
     && isObject(value.structuralModel) && typeof value.structuralModel.template === 'string' && isObject(value.structuralModel.topology) && Array.isArray(value.structuralModel.domains)
     && ['local','suggested','searching','selecting','enriched','failed'].includes(String(value.lookupStatus)) && typeof value.updatedAt === 'string'
 }
@@ -111,7 +116,35 @@ function sanitizeMolecule(value: unknown): MoleculeDefinition | undefined {
   const moleculeClass = ['protein','antibody','engineered_construct'].includes(String(value.moleculeClass)) ? value.moleculeClass as MoleculeDefinition['moleculeClass'] : 'protein'
   const fallback = defaultStructuralModel(value.id,value.name,moleculeClass)
   const structuralModel = isObject(value.structuralModel) && Array.isArray(value.structuralModel.domains) ? value.structuralModel as unknown as MoleculeDefinition['structuralModel'] : fallback
-  const candidate: MoleculeDefinition = { ...value, id:value.id, name:value.name, privacy:value.privacy === 'private' ? 'private' : 'public', moleculeClass, structuralModel, lookupStatus:['local','suggested','searching','selecting','enriched','failed'].includes(String(value.lookupStatus)) ? value.lookupStatus as MoleculeDefinition['lookupStatus'] : 'suggested', updatedAt:typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString() }
+  const entityClasses = ['natural_protein','mutant_protein','antibody','fusion_protein','receptor_trap','cytokine_ligand','enzyme','peptide','adc','protein_drug_conjugate','engineered_protein','unknown_custom'] as const
+  const origins = ['natural','engineered','mutant','synthetic'] as const
+  const topologies = ['soluble','secreted','single_pass_membrane','multi_pass_membrane','membrane_associated','intracellular','nuclear','organelle_associated','unknown'] as const
+  const migrated = !entityClasses.includes(value.entityClass as typeof entityClasses[number])
+  const entityClass: MoleculeDefinition['entityClass'] = !migrated
+    ? value.entityClass as MoleculeDefinition['entityClass']
+    : moleculeClass === 'antibody' ? 'antibody' : moleculeClass === 'engineered_construct' ? 'engineered_protein' : typeof value.uniprotAccession === 'string' ? 'natural_protein' : 'unknown_custom'
+  const origin: MoleculeDefinition['origin'] = origins.includes(value.origin as typeof origins[number])
+    ? value.origin as MoleculeDefinition['origin']
+    : entityClass === 'natural_protein' ? 'natural' : ['antibody','engineered_protein','fusion_protein','receptor_trap','adc','protein_drug_conjugate'].includes(entityClass) ? 'engineered' : 'synthetic'
+  const topology: MoleculeDefinition['topology'] = topologies.includes(value.topology as typeof topologies[number])
+    ? value.topology as MoleculeDefinition['topology']
+    : structuralModel.topology.transmembrane ? 'single_pass_membrane' : 'unknown'
+  const architecture = isObject(value.architecture)
+    ? value.architecture as unknown as MoleculeDefinition['architecture']
+    : entityClass === 'antibody' || entityClass === 'adc' ? architectureForFormat(value.id,'igg') : undefined
+  const candidate: MoleculeDefinition = {
+    ...value, id:value.id, name:value.name, privacy:value.privacy === 'private' ? 'private' : 'public', moleculeClass,
+    entityClass, origin, topology, architecture, structuralModel:{...structuralModel,architecture:architecture??structuralModel.architecture},
+    saveStatus:migrated ? 'needs_review' : ['unclassified','draft','saved','needs_review'].includes(String(value.saveStatus)) ? value.saveStatus as MoleculeDefinition['saveStatus'] : 'needs_review',
+    identitySource:migrated ? 'migration' : ['user','UniProt','BioScene inference','migration'].includes(String(value.identitySource)) ? value.identitySource as MoleculeDefinition['identitySource'] : 'migration',
+    identityConfidence:migrated ? 'low' : value.identityConfidence as MoleculeDefinition['identityConfidence'],
+    topologySource:migrated ? 'migration' : value.topologySource as MoleculeDefinition['topologySource'],
+    topologyConfidence:migrated ? 'low' : value.topologyConfidence as MoleculeDefinition['topologyConfidence'],
+    topologyConfirmed:migrated ? false : value.topologyConfirmed === true,
+    lookupStatus:['local','suggested','searching','selecting','enriched','failed'].includes(String(value.lookupStatus)) ? value.lookupStatus as MoleculeDefinition['lookupStatus'] : 'suggested',
+    lookupMessage:migrated ? 'Legacy molecule identity migrated — user review required' : typeof value.lookupMessage === 'string' ? value.lookupMessage : undefined,
+    updatedAt:typeof value.updatedAt === 'string' ? value.updatedAt : new Date().toISOString(),
+  }
   return isMoleculeDefinition(candidate) ? candidate : undefined
 }
 
@@ -171,7 +204,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
   if (!value || typeof value !== 'object') return undefined
   const legacy = value as Record<string, unknown>
   if (!Array.isArray(legacy.nodes) || !Array.isArray(legacy.edges)) return undefined
-  const schemas = new Set(Array.from({ length: 13 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
+  const schemas = new Set(Array.from({ length: 14 }, (_, index) => `bioscene.scene.v0.${index + 1}`))
   if (typeof legacy.schema !== 'string' || !schemas.has(legacy.schema)) return undefined
   try {
     const nodes = legacy.nodes.map((entry) => {
@@ -209,7 +242,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
     const scoped = applyVisualizationProfile(nodes, sanitizedEdges, rawProfile)
     const moleculeLibrary = Array.isArray(legacy.moleculeLibrary) ? legacy.moleculeLibrary.map(sanitizeMolecule).filter((item): item is MoleculeDefinition => !!item) : []
     const scene: SceneFile = {
-      schema: 'bioscene.scene.v0.13',
+      schema: 'bioscene.scene.v0.14',
       title: typeof legacy.title === 'string' ? legacy.title : 'Imported BioScene',
       templateId,
       createdAt: typeof legacy.createdAt === 'string' ? legacy.createdAt : new Date().toISOString(),
@@ -241,7 +274,7 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
 export function parseTissueModule(value: unknown): TissueModule | undefined {
   if (!isObject(value) || typeof value.id !== 'string' || typeof value.name !== 'string' || typeof value.description !== 'string' || typeof value.createdAt !== 'string' || !Array.isArray(value.nodes) || !Array.isArray(value.edges)) return undefined
   const parsed = parseSceneFile({
-    schema: 'bioscene.scene.v0.13', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
+    schema: 'bioscene.scene.v0.14', title: value.name, createdAt: value.createdAt, constraintMode: 'biological',
     nodes: value.nodes, edges: value.edges, stylePreset: 'scientific-clean',
     review: { status: 'draft', reviewers: [], notes: '', updatedAt: value.createdAt },
     literature: Array.isArray(value.literature) ? value.literature : [], collaboration: { participants: [], comments: [], activity: [] }, workspace: defaultFigureWorkspace,
@@ -343,3 +376,4 @@ export function downloadText(filename: string, text: string, type: string) {
   anchor.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+

@@ -1,6 +1,6 @@
 import { defaultStructuralModel } from './molecules'
 import { supabaseUniProtEndpoint } from './supabaseClient'
-import type { DomainDefinition, MoleculeDefinition, ProteinTopologyClass, StructuralModel, StructuralTemplate, UniProtFeatureRecord } from './types'
+import type { DomainDefinition, MoleculeDefinition, MoleculeTopology, ProteinTopologyClass, StructuralModel, StructuralTemplate, UniProtFeatureRecord } from './types'
 
 export type UniProtSpecies = '9606' | '10090' | '10116' | '9544'
 export type UniProtStage = 'searching' | 'fetching' | 'parsing' | 'building' | 'matching' | 'done'
@@ -106,6 +106,13 @@ function validateEntry(value: unknown): UniProtEntry {
   return entry
 }
 
+function suggestedTopology(model: StructuralModel): MoleculeTopology {
+  if (model.classification === 'single_pass_receptor') return 'single_pass_membrane'
+  if (model.classification === 'multi_pass_membrane') return 'multi_pass_membrane'
+  if (model.classification === 'secreted_cytokine' || model.topology.signalPeptide) return 'secreted'
+  return 'soluble'
+}
+
 export async function importUniProtEntry(molecule: MoleculeDefinition, accession: string, onStage?: (stage: UniProtStage) => void, signal?: AbortSignal): Promise<MoleculeDefinition> {
   if (molecule.privacy === 'private') throw new UniProtLookupError('privacy', 'Private constructs are never sent to public databases.')
   onStage?.('fetching'); const key = `entry:${accession.toUpperCase()}`; let entry = readCache<UniProtEntry>(key); let cached = !!entry
@@ -117,7 +124,7 @@ export async function importUniProtEntry(molecule: MoleculeDefinition, accession
   const locations = (entry.comments ?? []).filter((comment) => comment.commentType === 'SUBCELLULAR LOCATION').flatMap((comment) => comment.subcellularLocations ?? []).flatMap((item) => item.location?.value ? [item.location.value] : [])
   onStage?.('building'); const structuralModel = modelFor(molecule, entry); onStage?.('matching')
   const proteinName = entry.proteinDescription?.recommendedName?.fullName?.value ?? entry.proteinDescription?.submissionNames?.[0]?.fullName?.value
-  const next: MoleculeDefinition = { ...molecule, geneName: entry.genes?.[0]?.geneName?.value ?? molecule.geneName, proteinName, species: entry.organism?.scientificName, uniprotAccession: entry.primaryAccession, length: entry.sequence?.length, sequence: entry.sequence?.value, subcellularLocations: locations, uniprotFeatures: featureRecords(features), originalStructuralModel: structuredClone(structuralModel), structuralModel, uniprotFetchedAt: new Date().toISOString(), uniprotCached: cached, lookupStatus: 'enriched', lookupMessage: cached ? `Using cached UniProt annotation · ${entry.primaryAccession}` : `Imported from UniProt ${entry.primaryAccession}`, updatedAt: new Date().toISOString() }
+  const next: MoleculeDefinition = { ...molecule, moleculeClass:'protein', suggestedEntityClass:molecule.entityClass==='unknown_custom'?'natural_protein':molecule.suggestedEntityClass, suggestedTopology:suggestedTopology(structuralModel), topologySource:'UniProt', topologyConfidence:'high', topologyConfirmed:false, saveStatus:'draft', geneName: entry.genes?.[0]?.geneName?.value ?? molecule.geneName, proteinName, species: entry.organism?.scientificName, uniprotAccession: entry.primaryAccession, length: entry.sequence?.length, sequence: entry.sequence?.value, subcellularLocations: locations, uniprotFeatures: featureRecords(features), originalStructuralModel: structuredClone(structuralModel), structuralModel, uniprotFetchedAt: new Date().toISOString(), uniprotCached: cached, lookupStatus: 'enriched', lookupMessage: cached ? `Using cached UniProt annotation · ${entry.primaryAccession}` : `Imported from UniProt ${entry.primaryAccession}`, updatedAt: new Date().toISOString() }
   onStage?.('done'); return next
 }
 
@@ -131,3 +138,4 @@ export async function lookupUniProt(molecule: MoleculeDefinition, species: UniPr
 }
 
 export const uniProtSpeciesOptions = (Object.entries(speciesNames) as [UniProtSpecies, string][]).map(([id, label]) => ({ id, label }))
+

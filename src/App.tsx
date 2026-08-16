@@ -36,7 +36,7 @@ import { CollaborationPanel } from './components/CollaborationPanel'
 import { ContextHelp } from './components/ContextHelp'
 import { SceneSettingsPanel } from './components/SceneSettingsPanel'
 import { NewFigureDialog } from './components/NewFigureDialog'
-import { MoleculeSetupPanel } from './components/MoleculeSetupPanel'
+import { MoleculeSetupPanel, type MoleculeApplyPolicy } from './components/MoleculeSetupPanel'
 import { MembraneNode } from './components/MembraneNode'
 import { WorkspaceSetupPanel } from './components/WorkspaceSetupPanel'
 import { BlankQuickStart } from './components/BlankQuickStart'
@@ -54,13 +54,13 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BackendConflictError, enrichLiterature, pullRoom, pushRoom, sanitizedEndpoint } from './backend'
 import { sendMagicLink, signOutSupabase, supabaseApiEndpoint, supabaseConfigured, watchSupabaseSession } from './supabaseClient'
 import { applyVisualizationProfile, captureView, defaultVisualizationProfile, restoreView, sceneTypeLabels } from './sceneViews'
-import { applyMoleculeToNode, createMolecule, portsFromDomains } from './molecules'
+import { applyMoleculeToNode, createMolecule, portsFromDomains, structuralModelForMolecule, syncArchitecture } from './molecules'
 import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
-const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.13'
+const AUTOSAVE_KEY = 'bioscene.scene.autosave.v0.14'
 const REVISION_KEY = 'bioscene.scene.revisions.v0.10'
 const MODULE_KEY = 'bioscene.tissue.modules.v0.10'
 const ROOM_KEY = 'bioscene.room.config.v0.10'
@@ -79,7 +79,7 @@ const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>
 
 function readAutosavedScene() {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.12') ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
+    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.13') ?? localStorage.getItem('bioscene.scene.autosave.v0.12') ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
     if (!raw) return undefined
     return parseSceneFile(JSON.parse(raw))
   } catch {
@@ -259,7 +259,7 @@ function AppCanvas() {
   const documentNodes = useMemo(() => nodes.map((node) => ({ ...node, selected: undefined })), [nodes])
   const documentEdges = useMemo(() => edges.map((edge) => ({ ...edge, selected: undefined })), [edges])
   const currentScene = useMemo<SceneFile>(() => ({
-    schema: 'bioscene.scene.v0.13', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
+    schema: 'bioscene.scene.v0.14', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
     constraintMode: mode, nodes: documentNodes, edges: documentEdges, mechanism, stylePreset, review, literature, collaboration,
     visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions, workspace,
   }), [activeViewId, collaboration, customFunctions, documentEdges, documentNodes, literature, mechanism, mode, moleculeLibrary, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
@@ -459,27 +459,57 @@ function AppCanvas() {
       const existing = moleculeLibrary.find((item) => item.id === target.data.moleculeId || item.name.toLowerCase() === target.data.label.toLowerCase())
       if (existing) setSetupMoleculeId(existing.id)
       else {
-        const created = { ...createMolecule(target.data.label, target.data.kind === 'antibody' && /slc|custom|bispecific/i.test(target.data.label) ? 'private' : 'public'), geneName: target.data.target }
+        const created = { ...createMolecule(target.data.label), geneName: target.data.target }
         setMoleculeLibrary((items) => [...items, created]); setSetupMoleculeId(created.id)
       }
     } else setSetupMoleculeId(undefined)
     setShowMoleculeSetup(true)
   }, [moleculeLibrary, selectedNode])
 
-  const applyMoleculeStructure = useCallback((molecule: MoleculeDefinition) => {
-    if (!selectedNodeId) return
+  const applyMoleculeToInstances = useCallback((molecule: MoleculeDefinition, policy: Exclude<MoleculeApplyPolicy,'variant'>) => {
     const functionalPorts = portsFromDomains(molecule)
     setNodes((items) => items.map((node) => {
-      if (node.id === selectedNodeId) return applyMoleculeToNode(node, molecule)
+      const shouldApply = policy === 'all' ? node.data.moleculeId === molecule.id : node.id === selectedNodeId
+      if (shouldApply) return applyMoleculeToNode(node, molecule)
       const matching = functionalPorts.filter((port) => port.targetHint && [node.data.label,node.data.target].filter(Boolean).some((value) => String(value).toLowerCase().replace(/[^a-z0-9]/g,'') === port.targetHint!.toLowerCase().replace(/[^a-z0-9]/g,'')))
       if (!matching.length) return node
       const counterpartPorts = matching.map((port) => ({ ...port, id: `port:${node.id}:${port.id.split(':').at(-2)}:target`, role: 'target' as const, side: port.side === 'left' ? 'right' as const : 'left' as const, domainId: node.data.structuralModel?.domains.find((domain) => domain.kind === 'extracellular')?.id ?? node.data.domains[0]?.id, targetHint: molecule.name }))
       const existing = new Set(node.data.ports.map((port) => port.id))
       return { ...node, data: { ...node.data, ports: [...node.data.ports, ...counterpartPorts.filter((port) => !existing.has(port.id))] } }
     }))
-    setNotice(`${molecule.name} structure and functional ports applied`)
-    setShowMoleculeSetup(false)
   }, [selectedNodeId])
+
+  const saveMoleculeDefinition = useCallback((molecule: MoleculeDefinition, policy: MoleculeApplyPolicy, variantName?: string) => {
+    if (policy === 'variant') {
+      const id = `molecule:${molecule.name.replace(/[^A-Za-z0-9_-]+/g,'_')}:${crypto.randomUUID().slice(0,8)}`
+      const variantBase: MoleculeDefinition = {
+        ...structuredClone(molecule), id, name: variantName ?? `${molecule.name} variant`, parentMoleculeId: molecule.id,
+        architecture: molecule.architecture ? syncArchitecture(id, { ...molecule.architecture, components: [] }) : undefined,
+        savedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), saveStatus: 'saved',
+      }
+      const variant = { ...variantBase, structuralModel: structuralModelForMolecule(variantBase) }
+      setMoleculeLibrary((items) => [...items, variant])
+      if (selectedNodeId) applyMoleculeToInstances(variant, 'selected')
+      setSetupMoleculeId(variant.id)
+      setNotice(`${variant.name}을 새 variant로 저장했습니다.`)
+      return
+    }
+    setMoleculeLibrary((items) => items.some((item) => item.id === molecule.id) ? items.map((item) => item.id === molecule.id ? molecule : item) : [...items,molecule])
+    if (policy === 'all' || selectedNodeId) applyMoleculeToInstances(molecule, policy)
+    setNotice(`${molecule.name} 저장 완료 · ${policy === 'all' ? '모든 instance' : '선택 instance'}에 반영했습니다.`)
+  }, [applyMoleculeToInstances, selectedNodeId])
+
+  const deleteMoleculeDefinition = useCallback((molecule: MoleculeDefinition, removeInstances: boolean) => {
+    setMoleculeLibrary((items) => items.filter((item) => item.id !== molecule.id))
+    if (removeInstances) setNodes((items) => items.filter((node) => node.data.moleculeId !== molecule.id))
+    setSetupMoleculeId(undefined)
+    setNotice(`${molecule.name}을 library${removeInstances ? '와 scene' : ''}에서 제거했습니다.`)
+  }, [])
+
+  const moleculeInstanceCounts = useMemo(() => nodes.reduce<Record<string,number>>((counts,node) => {
+    if (node.data.moleculeId) counts[node.data.moleculeId] = (counts[node.data.moleculeId] ?? 0) + 1
+    return counts
+  },{}), [nodes])
 
   const addMoleculeToScene = useCallback((molecule: MoleculeDefinition) => {
     const kind: 'receptor' | 'antibody' | 'ligand' = molecule.moleculeClass === 'antibody' ? 'antibody' : molecule.structuralModel.topology.transmembrane ? 'receptor' : 'ligand'
@@ -1259,7 +1289,7 @@ function AppCanvas() {
       {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
       {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
       {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
-      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onApply={applyMoleculeStructure} onAdd={addMoleculeToScene} onClose={() => setShowMoleculeSetup(false)}/>}
+      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} instanceCounts={moleculeInstanceCounts} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onSave={saveMoleculeDefinition} onDelete={deleteMoleculeDefinition} onAdd={addMoleculeToScene} onClose={() => setShowMoleculeSetup(false)}/>}
       {showWorkspaceSetup && <WorkspaceSetupPanel value={workspace} hasContent={nodes.length > 0} onSave={saveWorkspace} onFitContent={fitWorkspaceToContent} onClose={() => setShowWorkspaceSetup(false)} />}
       <ContextHelp />
     </div>
@@ -1269,3 +1299,4 @@ function AppCanvas() {
 export default function App() {
   return <ErrorBoundary><ReactFlowProvider><AppCanvas /></ReactFlowProvider></ErrorBoundary>
 }
+

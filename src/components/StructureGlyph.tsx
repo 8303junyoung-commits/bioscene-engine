@@ -8,6 +8,18 @@ export function StructureGlyph({ data }: { data: BioNodeData }) {
   const domains = model?.domains ?? data.domains
   const highlighted = new Set(domains.filter((domain) => domain.highlighted).map((domain) => domain.id))
   const opacity = (id?: string) => highlighted.size && (!id || !highlighted.has(id)) ? .28 : 1
+  const architecture = model?.architecture
+  if (architecture?.kind === 'antibody') {
+    const units = architecture.components.filter((item) => item.type === 'binding_unit').slice(0,8)
+    const colors = ['#7955a5','#d58242','#3b8da0','#b75b7d','#5e9d63']
+    const positions = units.map((_item,index) => ({ x: units.length === 1 ? 36 : 8 + index * (56 / Math.max(1,units.length - 1)), y: 12 + (index % 2) * 5 }))
+    return <svg className="structure-glyph antibody-structure component-antibody" viewBox="0 0 72 64" aria-label={`${architecture.antibodyFormat ?? 'custom'} antibody architecture`}>
+      {positions.map((point,index) => { const specificityIndex=Math.max(0,architecture.specificities.findIndex((item)=>item.id===units[index].specificityId)); return <path key={`arm-${units[index].id}`} className="structure-backbone" style={{stroke:colors[specificityIndex%colors.length],strokeWidth:4}} d={`M36 39 L${point.x} ${point.y+6}`}/> })}
+      {units.map((unit,index) => { const point=positions[index]; const specificityIndex=Math.max(0,architecture.specificities.findIndex((item)=>item.id===unit.specificityId)); const unitType=architecture.specificities[specificityIndex]?.unitType; return <g key={unit.id}><rect x={point.x-6} y={point.y-5} width="12" height="11" rx={unitType==='VHH'?5:unitType==='scFv'?3:2} fill={colors[specificityIndex%colors.length]} stroke="#fff" strokeWidth="1.2"/><text x={point.x} y={point.y+2} textAnchor="middle" style={{fill:'#fff',fontSize:4}}>{unit.specificityId}{index+1}</text></g> })}
+      {architecture.fc && <><path className="structure-backbone" d="M36 38V50"/><rect className="domain-fc" x="28" y="48" width="16" height="12" rx="5"/><text x="36" y="56" textAnchor="middle" style={{fill:'#fff',fontSize:5}}>Fc</text></>}
+      {!architecture.fc && <circle cx="36" cy="40" r="4" fill="#91a9a0"/>}
+    </svg>
+  }
   if (['igg','bispecific_igg','asymmetric_bispecific','fab2'].includes(template)) {
     const left = domains.find((domain) => /fab.?1/i.test(domain.label))
     const right = domains.find((domain) => /fab.?2/i.test(domain.label))
@@ -39,3 +51,4 @@ export function StructureGlyph({ data }: { data: BioNodeData }) {
     {model?.displayLevel === 'full' && <text x="24" y="58">{template}</text>}
   </svg>
 }
+

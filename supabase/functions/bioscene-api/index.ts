@@ -60,7 +60,7 @@ async function handleRoom(request: Request, roomId: string, userId: string) {
   if ((Number(request.headers.get('content-length')) || 0) > 5_000_000) return json(request, 413, { error: 'Scene payload is too large' })
   const payload: unknown = await request.json().catch(() => null)
   const scene = payload && typeof payload === 'object' && 'scene' in payload ? (payload as { scene: unknown }).scene : null
-  if (!scene || typeof scene !== 'object' || (scene as { schema?: unknown }).schema !== 'bioscene.scene.v0.13') return json(request, 400, { error: 'Invalid BioScene v0.13 payload' })
+  if (!scene || typeof scene !== 'object' || (scene as { schema?: unknown }).schema !== 'bioscene.scene.v0.14') return json(request, 400, { error: 'Invalid BioScene v0.14 payload' })
   if (JSON.stringify(scene).length > 5_000_000) return json(request, 413, { error: 'Scene payload is too large' })
   if (!access.room) {
     const { data, error } = await admin.from('bioscene_rooms').insert({ room_id: roomId, owner_id: userId, updated_by: userId, scene, revision: 1 }).select('revision').single()
@@ -124,3 +124,4 @@ Deno.serve(async (request) => {
     return json(request, 500, { error: 'Internal server error' })
   }
 })
+

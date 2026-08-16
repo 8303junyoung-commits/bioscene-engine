@@ -407,6 +407,55 @@ button { color: inherit; }
 .port-preview { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; margin: 12px 0; padding: 10px; border: 1px solid #d5e4dd; border-radius: 9px; background: #f1f7f4; }.port-preview strong { width: 100%; font-size: 10px; }.port-preview code { border-radius: 5px; background: white; padding: 4px 6px; color: #396655; font-size: 8px; }.port-preview small { color: #75867e; font-size: 9px; }
 .molecule-editor > footer { display: flex; justify-content: flex-end; gap: 8px; }.molecule-editor > footer button { border: 1px solid #9fbbb0; border-radius: 8px; display: flex; align-items: center; gap: 5px; padding: 8px 11px; color: #315f4d; background: white; cursor: pointer; }.molecule-editor > footer button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 1000px) { .molecule-workspace { grid-template-columns: 220px 1fr; }.domain-list article { grid-template-columns: repeat(2,1fr); }.identity-fields { grid-template-columns: repeat(2,1fr); } }
+.identity-overhaul { width:min(1460px,98vw); }
+.molecule-save-state { align-self:center; margin-left:auto; padding:6px 10px; border-radius:999px; background:#e6f2ec; color:#28614d; font-size:10px; font-weight:800; }
+.molecule-save-state.dirty { background:#fff0d9; color:#995712; }
+.wizard-steps { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; padding:9px 24px; border-bottom:1px solid #d8e5df; background:#fff; }
+.wizard-steps span { border-radius:999px; padding:5px 8px; background:#edf5f1; color:#557066; text-align:center; font-size:9px; font-weight:800; }
+.molecule-list article { border:1px solid #d7e3dd; border-radius:10px; background:#fff; overflow:hidden; }
+.molecule-list article.selected { border-color:#3f8a6f; box-shadow:0 0 0 2px rgba(63,138,111,.12); }
+.molecule-list .molecule-row { width:100%; border:0; padding:9px; background:transparent; text-align:left; cursor:pointer; }
+.molecule-list article > div { display:flex; gap:3px; padding:0 7px 7px; }
+.molecule-list article > div button { min-width:24px; min-height:23px; border:1px solid #d7e3dd; border-radius:5px; background:#f7faf8; color:#45665a; font-size:8px; cursor:pointer; }
+.molecule-list article > div button:disabled { opacity:.35; cursor:not-allowed; }
+.molecule-list b { color:#dc7d20; }
+.lookup-meta { display:block; margin-top:5px; color:#6f8179; font-size:8px; }
+.suggestion-card { display:flex; align-items:center; gap:8px; margin-top:10px; border:1px solid #c6dfd3; border-radius:10px; padding:10px; background:#eff8f3; }
+.suggestion-card > div { display:flex; flex:1; flex-wrap:wrap; gap:5px 12px; }
+.suggestion-card small { flex-basis:100%; color:#657b71; }
+.suggestion-card button,.component-tools button,.specificity-heading button { border:1px solid #a8c8ba; border-radius:7px; padding:6px 8px; background:white; color:#326451; cursor:pointer; }
+.identity-section,.architecture-builder,.save-molecule-section { margin-top:12px; border:1px solid #d8e5df; border-radius:12px; padding:13px; background:#fff; }
+.identity-section > h3,.architecture-builder h3,.save-molecule-section h3 { margin:0 0 10px; font-size:13px; }
+.identity-fields,.architecture-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+.identity-fields label,.architecture-grid label,.specificity-list label,.generic-construct label { display:flex; flex-direction:column; gap:4px; color:#52685f; font-size:9px; font-weight:750; }
+.identity-fields input,.identity-fields select,.architecture-grid select,.specificity-list input,.specificity-list select,.generic-construct input,.save-molecule-section input { min-width:0; border:1px solid #c8d9d1; border-radius:7px; padding:7px; background:#fff; font:inherit; }
+.identity-fields .topology-confirm { flex-direction:row; align-items:center; align-self:end; min-height:31px; }
+.identity-fields .topology-confirm input { width:auto; }
+.natural-structure { display:flex; flex-wrap:wrap; gap:8px; }
+.natural-structure span { padding:8px 10px; border-radius:8px; background:#f0f6f3; font-size:10px; }
+.architecture-builder header { display:flex; justify-content:space-between; }
+.architecture-builder header small { color:#667a71; }
+.architecture-grid { margin-top:10px; }
+.architecture-grid .inline-check { flex-direction:row; align-items:center; }
+.specificity-heading { display:flex; align-items:center; justify-content:space-between; margin-top:14px; }
+.specificity-heading h4 { margin:0; font-size:11px; }
+.specificity-list { display:flex; flex-direction:column; gap:7px; margin-top:7px; }
+.specificity-list article { display:grid; grid-template-columns:110px 1.4fr 65px 100px 1fr 1fr 32px; gap:7px; align-items:end; padding:8px; border-radius:8px; background:#f5f9f7; }
+.specificity-list article > strong { align-self:center; font-size:10px; }
+.component-tools { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:12px; }
+.component-tools span { margin-right:4px; font-size:10px; font-weight:800; }
+.component-tools button { display:flex; align-items:center; gap:3px; padding:5px 7px; font-size:9px; }
+.component-tree { display:flex; flex-direction:column; gap:4px; margin-top:10px; padding:9px; border:1px dashed #aec8bc; border-radius:9px; }
+.component-tree > div { display:grid; grid-template-columns:18px 1fr 1fr 1fr 28px; gap:7px; align-items:center; border-radius:6px; padding:6px; background:#f1f7f4; font-size:9px; cursor:grab; }
+.component-tree button,.generic-construct article > button { border:0; background:transparent; color:#a74343; cursor:pointer; }
+.generic-construct article { display:grid; grid-template-columns:28px repeat(5,1fr) 28px; gap:7px; align-items:end; margin-top:7px; padding:8px; border-radius:8px; background:#f5f9f7; }
+.save-molecule-section { display:flex; justify-content:space-between; gap:16px; }
+.save-molecule-section p { color:#60746b; font-size:10px; }
+.save-molecule-section label { display:inline-flex; align-items:center; gap:4px; margin-right:11px; font-size:10px; }
+.save-molecule-section footer { display:flex; align-items:flex-end; gap:7px; }
+.save-molecule-section footer button { display:flex; align-items:center; gap:5px; border:1px solid #a8c6b9; border-radius:8px; padding:8px 10px; background:#fff; color:#315f4d; cursor:pointer; }
+.save-molecule-section footer .primary-button { background:#285f50; color:white; }
+@media (max-width:1100px) { .identity-fields,.architecture-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.specificity-list article,.generic-construct article { grid-template-columns:repeat(2,minmax(0,1fr)); }.save-molecule-section { flex-direction:column; } }
 
 /* Blank canvas workspace and biological membrane tool */
 .canvas-wrap.is-drawing-membrane { cursor: crosshair; }
@@ -443,3 +492,4 @@ button { color: inherit; }
 
 .object-context-menu { position: fixed; z-index: 6000; width: 190px; display: grid; gap: 1px; padding: 5px; border: 1px solid #cbdad4; border-radius: 10px; background: rgba(255,255,255,.99); box-shadow: 0 16px 45px rgba(18,47,37,.22); }.object-context-menu button { border: 0; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 7px 8px; color: #405e54; background: transparent; font-size: 9px; text-align: left; cursor: pointer; }.object-context-menu button:hover { background: #e8f2ed; }.object-context-menu button:last-child { color: #a0443d; }.context-separator { height: 1px; margin: 4px; background: #e1e9e5; }
 .shortcut-overlay { position: fixed; inset: 0; z-index: 7000; display: grid; place-items: center; background: rgba(16,37,30,.42); backdrop-filter: blur(3px); }.shortcut-card { width: 440px; border-radius: 15px; padding: 18px 20px 22px; background: #fbfdfc; box-shadow: 0 24px 70px rgba(12,34,27,.28); }.shortcut-card header { display: flex; justify-content: space-between; align-items: flex-start; }.shortcut-card h2 { margin: 4px 0 16px; }.shortcut-card header button { border: 0; background: transparent; font-size: 22px; cursor: pointer; }.shortcut-card > div { display: grid; grid-template-columns: 105px 1fr; gap: 7px 12px; align-items: center; }.shortcut-card kbd { justify-self: start; border: 1px solid #cbd9d3; border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; color: #285e4c; background: white; font: 750 9px inherit; }.shortcut-card span { color: #5d756d; font-size: 10px; }
+

@@ -34,7 +34,7 @@ Biology-aware mechanism-of-action figure editor based on the supplied master con
 - Add/delete objects and interactions
 - Protein & Construct Setup with a server-side UniProt proxy, human-reviewed candidate selection, accession lookup, progress/error/retry states, bulk lookup, offline cache, sequence + feature provenance, topology classification, editable structural previews, generated ports, and public/private separation
 - Structural SVG rendering for soluble proteins, single-pass receptors, IgG and bispecific antibody constructs
-- Scene save/load in `bioscene.scene.v0.13` JSON, including figure workspace geometry, biological membrane paths and receptor anchors, molecule libraries, functional vocabularies, visualization profiles, saved views, manual/pinned positions, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1` through `v0.12` scenes
+- Scene save/load in `bioscene.scene.v0.14` JSON, including explicit molecule identity, origin, topology, construct architecture and save state, plus figure workspace geometry, biological membrane paths and anchors, molecule libraries, functional vocabularies, visualization profiles, saved views, assets, callouts, literature, review metadata, interaction evidence, collaboration state, and automatic migration of `v0.1` through `v0.13` scenes
 - Debounced browser-local autosave and automatic restore
 - Strict scene-import validation and biological warning counting
 - State-aware compartment transitions in Biological Constraint mode
@@ -125,3 +125,4 @@ Two delivery archives are produced for review: the small source-only archive omi
 Phase 10 (Production Rooms) is complete: the generalized mechanism parser, production backend adapter, Bearer/API-key authenticated rooms, ETag/If-Match conflict detection, server-side literature metadata enrichment, session-only secret handling, v0.1–v0.9 migration into Scene v0.10, deployment security headers, environment-based API configuration, and a documented backend contract are implemented. See `BACKEND_CONTRACT.md` and `.env.example`.
 
 Phase 11 (Cloud Deployment) is complete in the codebase: Supabase passwordless Auth, an authenticated Edge Function, owner/member room authorization, optimistic revision locking, persistent audit records, RLS-protected Postgres tables, Render Blueprint configuration, and production environment templates are included. See `DEPLOYMENT.md`, `render.yaml`, and `supabase/`.
+

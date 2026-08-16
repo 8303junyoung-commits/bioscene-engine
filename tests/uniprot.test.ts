@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict'
-import { createMolecule } from '../src/molecules'
+import { architectureForFormat, createMolecule, portsFromDomains, structuralModelForMolecule } from '../src/molecules'
+import { parseSceneFile } from '../src/utils'
+import { defaultVisualizationProfile } from '../src/sceneViews'
+import { defaultFigureWorkspace } from '../src/workspace'
 
 const storage = new Map<string,string>()
 Object.defineProperty(globalThis,'localStorage',{ value:{ getItem:(key:string)=>storage.get(key)??null, setItem:(key:string,value:string)=>storage.set(key,value), removeItem:(key:string)=>storage.delete(key) }, configurable:true })
@@ -18,15 +21,32 @@ globalThis.fetch=(async (_input:RequestInfo|URL,init?:RequestInit)=>{ calls++; c
 
 const { lookupUniProt, UniProtLookupError } = await import('../src/uniprot')
 
-const byGene=await lookupUniProt(createMolecule('IL18RB'))
+const byGene=await lookupUniProt(createMolecule('IL18RB','public'))
 assert.equal(byGene.molecule?.uniprotAccession,'Q9HB29'); assert.equal(byGene.molecule?.structuralModel.classification,'single_pass_receptor'); assert.equal(byGene.molecule?.structuralModel.template,'single_pass_receptor'); assert.ok(byGene.molecule?.uniprotFeatures?.some((item)=>item.type==='Disulfide bond'))
+assert.equal(byGene.molecule?.entityClass,'unknown_custom','UniProt must suggest, not silently accept, identity'); assert.equal(byGene.molecule?.suggestedEntityClass,'natural_protein'); assert.equal(byGene.molecule?.suggestedTopology,'single_pass_membrane'); assert.equal(byGene.molecule?.topologyConfirmed,false)
 
-storage.clear(); calls=0; const direct=createMolecule('receptor'); direct.uniprotAccession='Q9HB29'; await lookupUniProt(direct); await lookupUniProt(direct); assert.equal(calls,1,'accession cache should avoid duplicate requests')
+storage.clear(); calls=0; const direct=createMolecule('receptor','public'); direct.uniprotAccession='Q9HB29'; await lookupUniProt(direct); await lookupUniProt(direct); assert.equal(calls,1,'accession cache should avoid duplicate requests')
 
-storage.clear(); mode='none'; await assert.rejects(()=>lookupUniProt(createMolecule('NOTAREALPROTEIN12345')),(error:unknown)=>error instanceof UniProtLookupError&&error.code==='not-found')
-mode='down'; await assert.rejects(()=>lookupUniProt(createMolecule('SERVICE-DOWN')),(error:unknown)=>error instanceof UniProtLookupError&&error.code==='service')
+storage.clear(); mode='none'; await assert.rejects(()=>lookupUniProt(createMolecule('NOTAREALPROTEIN12345','public')),(error:unknown)=>error instanceof UniProtLookupError&&error.code==='not-found')
+mode='down'; await assert.rejects(()=>lookupUniProt(createMolecule('SERVICE-DOWN','public')),(error:unknown)=>error instanceof UniProtLookupError&&error.code==='service')
 
-storage.clear(); mode='ok'; current=il18; const soluble=await lookupUniProt(createMolecule('IL18')); assert.equal(soluble.molecule?.structuralModel.classification,'secreted_cytokine'); assert.equal(soluble.molecule?.structuralModel.template,'cytokine')
+storage.clear(); mode='ok'; current=il18; const soluble=await lookupUniProt(createMolecule('IL18','public')); assert.equal(soluble.molecule?.structuralModel.classification,'secreted_cytokine'); assert.equal(soluble.molecule?.structuralModel.template,'cytokine')
 const edited=soluble.molecule!; edited.structuralModel.domains[0].function='Binding'; edited.structuralModel.domains[0].functionSource='user'; edited.structuralModel.modified=true; const reloaded=JSON.parse(JSON.stringify(edited)); assert.equal(reloaded.structuralModel.domains[0].function,'Binding'); assert.equal(reloaded.structuralModel.domains[0].functionSource,'user'); assert.equal(reloaded.originalStructuralModel.modified,false)
 
-console.log('UniProt tests passed: gene, accession/cache, not-found, unavailable, receptor, cytokine, provenance/reload')
+const nameOnly=createMolecule('IL18RB receptor bispecific antibody')
+assert.equal(nameOnly.entityClass,'unknown_custom'); assert.equal(nameOnly.topology,'unknown'); assert.equal(nameOnly.saveStatus,'unclassified')
+
+const formatCases = [
+  ['igg',2,true],['fab',1,false],['fab2',2,false],['scfv',1,false],['vhh',1,false],['scfv_fc',2,true],['fab_fc',2,true],['bispecific',2,true],['trispecific',3,true],['multispecific',3,true],['multivalent',4,true],['antibody_fusion',3,true],['custom_antibody',0,false],
+] as const
+for (const [format,units,fc] of formatCases) { const architecture=architectureForFormat('m:test',format); assert.equal(architecture.components.filter((item)=>item.type==='binding_unit').length,units,`${format} binding units`); assert.equal(architecture.fc,fc,`${format} Fc`) }
+
+const bispecific=createMolecule('BsAb'); bispecific.entityClass='antibody'; bispecific.origin='engineered'; bispecific.topology='soluble'; bispecific.topologyConfirmed=true; bispecific.architecture=architectureForFormat(bispecific.id,'bispecific'); bispecific.architecture.specificities[0].target='PD-1'; bispecific.architecture.specificities[0].function='Blocking'; bispecific.architecture.specificities[1].target='VEGF'; bispecific.architecture.specificities[1].function='Neutralization'; bispecific.structuralModel=structuralModelForMolecule(bispecific)
+const bsPorts=portsFromDomains(bispecific); assert.equal(bsPorts.length,2); assert.deepEqual(new Set(bsPorts.map((port)=>port.targetHint)),new Set(['PD-1','VEGF']))
+
+const legacy=createMolecule('Legacy proprietary receptor'); const legacyMolecule=structuredClone(legacy) as unknown as Record<string,unknown>; for (const field of ['entityClass','origin','topology','saveStatus','identitySource','identityConfidence','topologySource','topologyConfidence','topologyConfirmed','architecture']) delete legacyMolecule[field]
+const migrated=parseSceneFile({schema:'bioscene.scene.v0.13',title:'Legacy',createdAt:new Date().toISOString(),constraintMode:'biological',nodes:[],edges:[],stylePreset:'scientific-clean',review:{status:'draft',reviewers:[],notes:'',updatedAt:new Date().toISOString()},literature:[],collaboration:{participants:[],comments:[],activity:[]},visualizationProfile:defaultVisualizationProfile,views:[],moleculeLibrary:[legacyMolecule],customFunctions:[],workspace:defaultFigureWorkspace})
+assert.equal(migrated?.schema,'bioscene.scene.v0.14'); assert.equal(migrated?.moleculeLibrary[0].entityClass,'unknown_custom'); assert.equal(migrated?.moleculeLibrary[0].saveStatus,'needs_review'); assert.equal(migrated?.moleculeLibrary[0].topologyConfirmed,false)
+
+console.log('Model tests passed: 10+ identity, confirmation, topology, format, valency, specificity, ports, provenance, privacy, and migration scenarios')
+
