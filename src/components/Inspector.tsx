@@ -24,6 +24,7 @@ export function Inspector(props: InspectorProps) {
   const compartmentOptions = selectedNode && props.constraintMode === 'biological'
     ? selectedNode.data.allowedCompartments
     : allCompartments
+  const isMolecule = !!selectedNode && ['receptor','ligand','antibody'].includes(selectedNode.data.kind)
 
   return (
     <aside className="inspector">
@@ -61,8 +62,9 @@ export function Inspector(props: InspectorProps) {
             <span className={`asset-icon asset-${selectedNode.data.kind}`} />
             <div><strong>{selectedNode.data.kind}</strong><small>{selectedNode.id}</small></div>
           </div>
-          <label>Label<input value={selectedNode.data.label} onChange={(e) => props.onNodeChange({ label: e.target.value })} /></label>
-          <label>Description<input value={selectedNode.data.subtitle ?? ''} onChange={(e) => props.onNodeChange({ subtitle: e.target.value })} /></label>
+          {!isMolecule && <label>Label<input value={selectedNode.data.label} onChange={(e) => props.onNodeChange({ label: e.target.value })} /></label>}
+          {!isMolecule && <label>Description<input value={selectedNode.data.subtitle ?? ''} onChange={(e) => props.onNodeChange({ subtitle: e.target.value })} /></label>}
+          {isMolecule && <section className="inspector-section"><strong>Visual</strong><label data-help="켜면 CLEAN 모드에서도 이 분자의 이름만 예외적으로 표시합니다. 전역 Names 오버레이와 함께 사용할 수 있습니다."><input type="checkbox" checked={selectedNode.data.showName===true} onChange={(e)=>props.onNodeChange({showName:e.target.checked})}/> Always show name</label><label data-help="분자 그림만 50–200%로 확대·축소합니다. 생물학적 정의와 연결 포트는 변하지 않습니다.">Scale <b>{Math.round((selectedNode.data.visualScale??1)*100)}%</b><input type="range" min="0.5" max="2" step="0.05" value={selectedNode.data.visualScale??1} onChange={(e)=>props.onNodeChange({visualScale:Number(e.target.value)})}/></label><label data-help="분자 그림을 회전합니다. 막에 고정된 수용체의 막 방향 회전과 합산됩니다.">Rotation <b>{selectedNode.data.visualRotation??0}°</b><input type="range" min="-180" max="180" step="5" value={selectedNode.data.visualRotation??0} onChange={(e)=>props.onNodeChange({visualRotation:Number(e.target.value)})}/></label><button className="structure-edit-button" onClick={props.onEditStructure}>Edit Molecule Definition</button></section>}
           <label data-help="Auto는 자동 배치 대상입니다. Manual은 드래그한 좌표를, Pinned는 고정 좌표를 Auto layout 이후에도 유지합니다.">Position mode<select value={selectedNode.data.positionMode ?? 'auto'} onChange={(e) => props.onNodeChange({ positionMode: e.target.value as 'auto'|'manual'|'pinned' })}><option value="auto">Auto</option><option value="manual">Manual</option><option value="pinned">Pinned</option></select></label>
           <label data-help="Visible은 표시, Manually hidden은 Scene을 바꿔도 숨김을 유지합니다. Scope에 의한 숨김은 Figure settings가 자동 관리합니다.">Visibility<select value={selectedNode.data.visibility === 'hidden_by_scope' ? 'visible' : selectedNode.data.visibility ?? 'visible'} onChange={(e) => props.onNodeChange({ visibility: e.target.value as 'visible'|'manually_hidden' })}><option value="visible">Visible</option><option value="manually_hidden">Manually hidden</option></select></label>
           {selectedNode.data.kind === 'annotation' && <div className="annotation-editor"><label data-help="짧은 결론이나 메시지 제목을 입력하면 캔버스 설명 상자의 굵은 제목으로 즉시 반영됩니다.">Callout title<input value={selectedNode.data.annotation?.title ?? ''} onChange={(e) => props.onNodeChange({ annotation: { ...(selectedNode.data.annotation ?? { body: '', tone: 'info' }), title: e.target.value } })} /></label><label data-help="근거·해석·주의사항을 문장으로 입력하면 제목 아래 본문으로 표시되고 PNG·SVG·PPTX에도 포함됩니다.">Body<textarea rows={5} value={selectedNode.data.annotation?.body ?? ''} onChange={(e) => props.onNodeChange({ annotation: { ...(selectedNode.data.annotation ?? { title: '', tone: 'info' }), body: e.target.value } })} /></label><label data-help="Information은 일반 설명, Key finding은 핵심 결과, Warning은 한계·위험을 뜻합니다. 선택에 따라 설명 상자의 강조 색상이 바뀝니다.">Tone<select value={selectedNode.data.annotation?.tone ?? 'info'} onChange={(e) => props.onNodeChange({ annotation: { ...(selectedNode.data.annotation ?? { title: '', body: '' }), tone: e.target.value as 'info' | 'finding' | 'warning' } })}><option value="info">Information</option><option value="finding">Key finding</option><option value="warning">Warning</option></select></label></div>}
@@ -79,11 +81,10 @@ export function Inspector(props: InspectorProps) {
               {selectedNode.data.states.map((state) => <option key={state.id} value={state.id}>{state.label}</option>)}
             </select>
           </label>}
-          {selectedNode.data.kind !== 'annotation' && <><div className="semantic-card" data-help="DOMAIN은 수용체·항체 등에서 기능적으로 구분되는 구조 영역입니다. 현재 개체 유형에 맞춰 자동 지정되며 연결 의미를 해석하는 참고 정보입니다."><span>DOMAINS</span>{selectedNode.data.domains.length ? selectedNode.data.domains.map((domain) => <code key={domain.id}>{domain.label}</code>) : <small>Container object</small>}</div>
+          {selectedNode.data.kind !== 'annotation' && <details className="inspector-advanced"><summary>Advanced metadata</summary><div className="semantic-card" data-help="DOMAIN은 수용체·항체 등에서 기능적으로 구분되는 구조 영역입니다. 현재 개체 유형에 맞춰 자동 지정되며 연결 의미를 해석하는 참고 정보입니다."><span>DOMAINS</span>{selectedNode.data.domains.length ? selectedNode.data.domains.map((domain) => <code key={domain.id}>{domain.label}</code>) : <small>Container object</small>}</div>
           <div className="semantic-card" data-help="SITE는 결합·인산화처럼 특정 반응이 일어나는 명시적 위치입니다. 정의된 site가 없으면 개체 전체를 대상으로 관계를 표현합니다."><span>SITES</span>{selectedNode.data.sites.length ? selectedNode.data.sites.map((site) => <code key={site.id}>{site.label}</code>) : <small>No explicit sites</small>}</div>
           <div className="semantic-card" data-help="PORT는 선을 연결할 수 있는 입력·출력 지점입니다. 포트 ID 뒤의 목록은 해당 포트에서 허용되는 상호작용 종류이며, 맞지 않는 연결은 Biological Constraint가 차단합니다."><span>PORTS</span>{selectedNode.data.ports.length ? selectedNode.data.ports.map((port) => <code key={port.id}>{port.id} · {port.allowedInteractions.join('/')}</code>) : <small>Container object</small>}</div>
-          <div className="semantic-card" data-help="ANCHOR는 이 개체가 세포막·세포질·핵 등 어디에 고정되어야 하는지 나타냅니다. 자동 배치와 생물학적 위치 검증에 사용됩니다."><span>ANCHOR</span>{selectedNode.data.anchors.map((anchor) => <code key={anchor.id}>{anchor.type} · {anchor.compartment}</code>)}</div></>}
-          {['receptor','ligand','antibody'].includes(selectedNode.data.kind) && <button className="structure-edit-button" data-help="Molecule Builder를 열어 visual template, topology, domain function, target, highlight와 자동 port를 편집합니다. 캔버스 개체를 더블클릭해도 열립니다." onClick={props.onEditStructure}>Edit protein structure</button>}
+          <div className="semantic-card" data-help="ANCHOR는 이 개체가 세포막·세포질·핵 등 어디에 고정되어야 하는지 나타냅니다. 자동 배치와 생물학적 위치 검증에 사용됩니다."><span>ANCHOR</span>{selectedNode.data.anchors.map((anchor) => <code key={anchor.id}>{anchor.type} · {anchor.compartment}</code>)}</div></details>}
           <button className="danger-button" data-help="선택 개체를 삭제합니다. 세포는 자식 개체와 연결선도 함께 삭제되고, 고정 개체가 있는 막은 보존 또는 연쇄 삭제 방식을 먼저 묻습니다." onClick={props.onDelete}>Delete object</button>
         </div>
       )}
@@ -105,4 +106,3 @@ export function Inspector(props: InspectorProps) {
     </aside>
   )
 }
-

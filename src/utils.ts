@@ -215,7 +215,9 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       const matchingState = defaults.states.find((state) => state.id === node.data.state || state.label === node.data.state)
       const visibility = ['visible','hidden_by_scope','manually_hidden','collapsed'].includes(String(node.data.visibility)) ? node.data.visibility : 'visible'
       const positionMode = ['auto','manual','pinned'].includes(String(node.data.positionMode)) ? node.data.positionMode : 'auto'
-      return { ...node, hidden: visibility !== 'visible', draggable: node.data.locked ? false : node.draggable, deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode, locked: node.data.locked === true } }
+      const visualScale = typeof node.data.visualScale === 'number' && Number.isFinite(node.data.visualScale) ? Math.min(2, Math.max(.5, node.data.visualScale)) : 1
+      const visualRotation = typeof node.data.visualRotation === 'number' && Number.isFinite(node.data.visualRotation) ? Math.min(180, Math.max(-180, node.data.visualRotation)) : 0
+      return { ...node, hidden: visibility !== 'visible', draggable: node.data.locked ? false : node.draggable, deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode, locked: node.data.locked === true, showName:node.data.showName === true, visualScale, visualRotation } }
     })
     const byId = new Map(nodes.map((node) => [node.id, node]))
     const edges = (legacy.edges as BioEdge[]).map((edge) => {
@@ -376,4 +378,3 @@ export function downloadText(filename: string, text: string, type: string) {
   anchor.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
-

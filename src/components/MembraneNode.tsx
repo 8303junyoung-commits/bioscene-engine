@@ -2,10 +2,12 @@ import { NodeToolbar, useReactFlow, type NodeProps } from '@xyflow/react'
 import { Copy, FlipVertical2, Pencil, Scissors, Trash2 } from 'lucide-react'
 import type { BioNode } from '../types'
 import { membraneLipidSamples, membranePathD, offsetMembranePoints } from '../membraneGeometry'
+import { useCanvasDisplay } from './CanvasDisplayContext'
 
 const action = (id: string, name: string, detail: Record<string, unknown> = {}) => window.dispatchEvent(new CustomEvent('bioscene:object-action', { detail: { id, action: name, ...detail } }))
 
 export function MembraneNode({ id, data, selected, width, height }: NodeProps<BioNode>) {
+  const display = useCanvasDisplay()
   const flow = useReactFlow()
   const membrane = data.membrane
   if (!membrane) return null
@@ -42,7 +44,6 @@ export function MembraneNode({ id, data, selected, width, height }: NodeProps<Bi
         </g>)}</g></>}
     </svg>
     {selected && <div className="membrane-control-points" data-export-exclude="true">{membrane.path.map((point, index) => <button key={`${index}-${point.x}-${point.y}`} className={index === 0 || index === membrane.path.length - 1 ? 'endpoint' : ''} style={{ left: point.x, top: point.y }} onPointerDown={(event) => startPointDrag(event, index)} title={index === 0 || index === membrane.path.length - 1 ? '끝점을 드래그해 막을 연장하거나 줄입니다.' : '드래그해 경로를 수정합니다. Alt+클릭으로 삭제합니다.'}/>)}</div>}
-    <span className="membrane-side side-a">{membrane.sideA}</span><span className="membrane-side side-b">{membrane.sideB}</span>
+    {display.overlays.compartments && <><span className="membrane-side side-a">{membrane.sideA}</span><span className="membrane-side side-b">{membrane.sideB}</span></>}
   </div>
 }
-
