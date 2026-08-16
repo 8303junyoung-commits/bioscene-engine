@@ -31,4 +31,11 @@ jobs:
       - run: pnpm exec eslint . --max-warnings 0
       - run: pnpm test
       - run: pnpm build
-
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm qa:smoke
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bioscene-qa-report
+          path: qa/reports/
+          if-no-files-found: ignore

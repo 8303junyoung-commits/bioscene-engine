@@ -266,7 +266,7 @@ button { color: inherit; }
 .app-shell[data-style] .bio-node { border-color: color-mix(in srgb, var(--production-accent) 58%, #c8d4cf); }
 .app-shell[data-style="presentation-dark"] .cell-node { filter: brightness(.82) saturate(.75); }
 .app-shell[data-style="presentation-dark"] .react-flow__edge-text { fill: #e8f4ef; }
-.alignment-tools { display: flex; align-items: center; gap: 3px; padding: 4px; border-radius: 9px; background: rgba(255,255,255,.94); box-shadow: 0 3px 14px rgba(24,50,40,.14); }
+.alignment-tools { display: flex; align-items: center; gap: 3px; padding: 4px; border-radius: 9px; background: rgba(255,255,255,.94); box-shadow: 0 3px 14px rgba(24,50,40,.14); top: 48px !important; }
 .alignment-tools button { display: grid; place-items: center; width: 27px; height: 27px; border: 0; border-radius: 5px; background: transparent; color: #35594d; cursor: pointer; }
 .alignment-tools button:hover { background: #e4f0eb; }
 .alignment-tools > span { width: 1px; height: 18px; background: #cfddd7; margin: 0 2px; }

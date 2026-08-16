@@ -58,6 +58,7 @@ import { applyMoleculeToNode, createMolecule, portsFromDomains, structuralModelF
 import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
 import { CanvasDisplayProvider, cleanOverlays, detailOverlays, figurePresetOverlays, type CanvasOverlay, type CanvasOverlays, type CanvasViewMode, type FigurePreset } from './components/CanvasDisplayContext'
+import { qaApiEnabled, qaClone } from './qaApi'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
@@ -257,10 +258,39 @@ function AppCanvas() {
   const lastHistoryScene = useRef<string | undefined>(undefined)
   const [historyVersion, setHistoryVersion] = useState(0)
   const editorClipboard = useRef<{ nodes: BioNodeType[]; edges: BioEdge[] } | undefined>(undefined)
+  const qaErrorsRef = useRef<string[]>([])
   const canvasDisplay = useMemo(() => ({ mode:canvasViewMode, overlays:canvasOverlays, molecules:moleculeLibrary }), [canvasOverlays, canvasViewMode, moleculeLibrary])
   const setCanvasMode = useCallback((next:CanvasViewMode) => { setCanvasViewMode(next); setCanvasOverlays({ ...(next === 'clean' ? cleanOverlays : detailOverlays) }) }, [])
   const applyFigurePreset = useCallback((next:FigurePreset) => { setFigurePreset(next); const overlays={...figurePresetOverlays[next]}; setCanvasOverlays(overlays); setCanvasViewMode(next === 'debug' ? 'detail' : 'clean'); setNotice(`${next} figure preset applied`) }, [])
   const toggleCanvasOverlay = useCallback((key:CanvasOverlay) => setCanvasOverlays((current) => ({ ...current, [key]:!current[key] })), [])
+
+  useEffect(() => {
+    if (!qaApiEnabled()) return
+    const recordError = (value:unknown) => { const message=value instanceof Error?`${value.name}: ${value.message}`:String(value); qaErrorsRef.current=[...qaErrorsRef.current,message].slice(-100) }
+    const onError = (event:ErrorEvent) => recordError(event.error ?? event.message)
+    const onRejection = (event:PromiseRejectionEvent) => recordError(event.reason)
+    window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onRejection)
+    return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection) }
+  }, [])
+
+  useEffect(() => {
+    if (!qaApiEnabled()) return
+    window.__BIOSCENE_QA__ = {
+      version:1,
+      getSceneObjects:()=>qaClone(nodes),
+      getSceneObject:(id)=>qaClone(nodes.find((node)=>node.id===id)),
+      getSelectedObject:()=>qaClone(nodes.find((node)=>node.id===selectedNodeId)),
+      getMoleculeDefinitions:()=>qaClone(moleculeLibrary),
+      getMoleculeDefinition:(name)=>qaClone(moleculeLibrary.find((item)=>item.name.toLowerCase()===name.toLowerCase())),
+      getInteractions:()=>qaClone(edges),
+      getMembranes:()=>qaClone(nodes.filter((node)=>node.data.kind==='membrane')),
+      getWorkspace:()=>qaClone(workspace),
+      getCurrentView:()=>qaClone({ canvasViewMode, figurePreset, overlays:canvasOverlays, visualizationProfile, activeViewId }),
+      getHistoryState:()=>({undoCount:undoStack.current.length,redoCount:redoStack.current.length}),
+      getAppErrors:()=>[...qaErrorsRef.current],
+    }
+    return () => { delete window.__BIOSCENE_QA__ }
+  }, [activeViewId, canvasOverlays, canvasViewMode, edges, figurePreset, moleculeLibrary, nodes, selectedNodeId, visualizationProfile, workspace])
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
@@ -907,8 +937,13 @@ function AppCanvas() {
   const loadTemplate = useCallback((nextTemplateId: SceneTemplateId) => {
     if (nextTemplateId === templateId || !window.confirm('Switch templates? Current objects, literature links, review notes, and comments will be replaced.')) return
     const template = cloneTemplate(nextTemplateId)
-    const scoped = applyVisualizationProfile(template.nodes, template.edges, visualizationProfile)
+    const nextProfile = {
+      ...visualizationProfile,
+      layoutMode: nextTemplateId === 'receptor-blockade-comparison' ? 'comparison' as const : nextTemplateId === 'tumor-immune-crosstalk' ? 'multi_panel' as const : 'single' as const,
+    }
+    const scoped = applyVisualizationProfile(template.nodes, template.edges, nextProfile)
     setTemplateId(nextTemplateId)
+    setVisualizationProfile(nextProfile)
     setSceneTitle(template.title)
     setSceneCreatedAt(new Date().toISOString())
     setMechanism(undefined)
@@ -1178,14 +1213,14 @@ function AppCanvas() {
         <div className="top-actions">
           <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'assets'} onClick={() => setMobilePanel((value) => value === 'assets' ? undefined : 'assets')}>Assets</button>
           <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'inspector'} onClick={() => setMobilePanel((value) => value === 'inspector' ? undefined : 'inspector')}>Inspector</button>
-          <button className="ghost-button" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
+          <button className="ghost-button" data-testid="new-figure" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
           <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
-          <button className="ghost-button" data-help="그림에 사용할 protein과 proprietary construct의 topology, visual template, functional domains, targets와 자동 생성 port를 정의합니다. Private construct는 외부 데이터베이스로 전송하지 않습니다." onClick={() => openMoleculeBuilder()}><Workflow size={16}/> Molecule builder</button>
+          <button className="ghost-button" data-testid="protein-setup" data-help="그림에 사용할 protein과 proprietary construct의 topology, visual template, functional domains, targets와 자동 생성 port를 정의합니다. Private construct는 외부 데이터베이스로 전송하지 않습니다." onClick={() => openMoleculeBuilder()}><Workflow size={16}/> Molecule builder</button>
           <button className="ghost-button" data-help="기전 설명을 문장으로 입력하면 인식한 분자·세포·상호작용을 먼저 미리 보여주고, 확인 후 편집 가능한 장면으로 생성합니다. 생성하면 현재 장면과 근거·메모가 교체되므로 확인창이 표시됩니다." onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
-          <button className="ghost-button icon-only" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
-          <button className="ghost-button icon-only" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
+          <button className="ghost-button icon-only" data-testid="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
+          <button className="ghost-button icon-only" data-testid="redo" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
           <button className="ghost-button" onClick={resetScene}><RotateCcw size={16} /> Reset</button>
-          <button className="ghost-button" onClick={saveJson}><Save size={16} /> Save JSON</button>
+          <button className="ghost-button" data-testid="save-json" onClick={saveJson}><Save size={16} /> Save JSON</button>
           <button className="ghost-button" data-help="논문·발표용 색상과 출력 비율을 고르고 PNG·SVG·PowerPoint로 내보냅니다. 수동 스냅샷을 만들거나 이전 스냅샷으로 복원할 수도 있습니다." onClick={() => setShowProductionPanel(true)}><PanelsTopLeft size={16} /> Production</button>
           <button className="ghost-button" data-help="PMID·DOI·논문 URL·내부 인용을 등록하고 품질 점수를 매긴 뒤, 선택한 상호작용 선에 근거로 연결합니다." onClick={() => setShowLiteraturePanel(true)}><BookOpen size={16} /> Evidence</button>
           <button className="ghost-button" data-help="검토 참여자와 댓글을 기록하고, Supabase 계정으로 로그인해 Room ID가 같은 사용자끼리 장면 리비전을 Push/Pull합니다." onClick={() => setShowCollaborationPanel(true)}><Cloud size={16} /> Collaborate</button>
@@ -1255,7 +1290,7 @@ function AppCanvas() {
               <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
               <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
               <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
-              <button className="tool-button" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
+              <button className="tool-button" data-testid="workspace-settings" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
               <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
               <div className="canvas-view-switch" data-export-exclude="true" data-help="CLEAN은 최종 그림처럼 분자 형태만 표시하고, DETAIL은 이름·포트·구획 등 편집 정보를 표시합니다."><button className={canvasViewMode==='clean'?'active':''} onClick={()=>setCanvasMode('clean')}>CLEAN</button><button className={canvasViewMode==='detail'?'active':''} onClick={()=>setCanvasMode('detail')}>DETAIL</button></div>
               <select className="figure-preset-select" aria-label="Figure preset" value={figurePreset} onChange={(event)=>applyFigurePreset(event.target.value as FigurePreset)} data-export-exclude="true" data-help="Publication은 무라벨 도식, Presentation은 이름 중심, Mechanism은 기전 설명, Debug는 모든 편집 정보를 표시합니다."><option value="publication">Publication</option><option value="presentation">Presentation</option><option value="mechanism">Mechanism</option><option value="debug">Debug</option></select>

@@ -22,7 +22,7 @@ const help: Record<DrawingTool, string> = {
 }
 
 const Tool = ({ value, active, label, shortcut, icon, onTool }: { value: DrawingTool; active: boolean; label: string; shortcut: string; icon: React.ReactNode; onTool: (tool: DrawingTool) => void }) => (
-  <button className={active ? 'editor-tool active' : 'editor-tool'} onClick={() => onTool(value)} title={`${label} (${shortcut})`} data-help={help[value]}>
+  <button className={active ? 'editor-tool active' : 'editor-tool'} data-testid={`tool-${value}`} onClick={() => onTool(value)} title={`${label} (${shortcut})`} data-help={help[value]}>
     {icon}<span>{label}</span><kbd>{shortcut}</kbd>
   </button>
 )
@@ -50,8 +50,7 @@ export function EditorToolbar({ tool, continuous, onTool, onContinuous, onShortc
       <Tool value="place_annotation" active={tool === 'place_annotation'} label="Text" shortcut="T" icon={<Type size={15}/>} onTool={onTool}/>
     </div></div>
     <div className="editor-toolbar-spacer"/>
-    <button className={continuous ? 'editor-pin active' : 'editor-pin'} onClick={onContinuous} aria-pressed={continuous} data-help="켜면 현재 생성 도구를 여러 번 연속 사용합니다. 끄면 개체 하나를 만든 뒤 Select 모드로 돌아갑니다."><Pin size={14}/><span>{continuous ? 'Continuous' : 'Single use'}</span></button>
+    <button className={continuous ? 'editor-pin active' : 'editor-pin'} data-testid="continuous-tool" onClick={onContinuous} aria-pressed={continuous} data-help="켜면 현재 생성 도구를 여러 번 연속 사용합니다. 끄면 개체 하나를 만든 뒤 Select 모드로 돌아갑니다."><Pin size={14}/><span>{continuous ? 'Continuous' : 'Single use'}</span></button>
     <button className="editor-help-button" onClick={onShortcuts} data-help="선택·이동·복제·삭제·Undo 등 데스크톱 편집기 단축키를 한눈에 표시합니다."><HelpCircle size={16}/><Sparkles size={10}/></button>
   </nav>
 }
-

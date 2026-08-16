@@ -56,7 +56,10 @@ export function structuralModelForMolecule(molecule:MoleculeDefinition):Structur
   const topology=molecule.topology
   const template:StructuralTemplate=topology==='single_pass_membrane'?'single_pass_receptor':topology==='multi_pass_membrane'?'multi_pass_receptor':molecule.entityClass==='cytokine_ligand'?'cytokine':molecule.entityClass==='enzyme'?'enzyme':molecule.entityClass==='fusion_protein'||molecule.entityClass==='receptor_trap'||molecule.entityClass==='engineered_protein'?'custom_construct':'globular'
   const fallback=defaultStructuralModel(molecule.id,molecule.name,moleculeClassFor(molecule.entityClass),template)
-  return {...fallback,templateSource:molecule.topologySource==='UniProt'?'UniProt':molecule.identitySource==='user'?'user':'inferred',templateConfidence:molecule.topologyConfidence??'low',architecture:molecule.architecture,modified:true}
+  const preservedDomains=molecule.structuralModel?.template===template&&molecule.structuralModel.domains.length
+    ? molecule.structuralModel.domains
+    : fallback.domains
+  return {...fallback,domains:preservedDomains,templateSource:molecule.topologySource==='UniProt'?'UniProt':molecule.identitySource==='user'?'user':'inferred',templateConfidence:molecule.topologyConfidence??'low',architecture:molecule.architecture,modified:true}
 }
 
 export function createMolecule(name:string,privacy:MoleculeDefinition['privacy']='private'):MoleculeDefinition {
@@ -76,4 +79,3 @@ export function applyMoleculeToNode(node:BioNode,molecule:MoleculeDefinition):Bi
   const generated=portsFromDomains(molecule); const generatedIds=new Set(generated.map((port)=>port.id)); const retained=node.data.ports.filter((port)=>!port.id.startsWith(`port:${molecule.id}:`)&&!generatedIds.has(port.id)); const required=node.data.domains.filter((domain)=>retained.some((port)=>port.domainId===domain.id)||node.data.sites.some((site)=>site.domainId===domain.id)); const domainIds=new Set(molecule.structuralModel.domains.map((item)=>item.id)); const domains=[...molecule.structuralModel.domains,...required.filter((item)=>!domainIds.has(item.id))]
   return {...node,data:{...node.data,label:molecule.name,target:molecule.geneName??node.data.target,moleculeId:molecule.id,structuralModel:molecule.structuralModel,domains,ports:[...retained,...generated]}}
 }
-
