@@ -9,7 +9,7 @@
     "build": "tsc -b && vite build --configLoader runner",
     "preview": "vite preview --configLoader runner",
     "lint": "eslint .",
-    "test": "node scripts/run-uniprot-tests.mjs"
+    "test": "node scripts/run-uniprot-tests.mjs && node scripts/run-canvas-display-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.112.3",
@@ -38,4 +38,3 @@
     "vite": "^7.1.2"
   }
 }
-

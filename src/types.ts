@@ -228,6 +228,9 @@ export interface BioNodeFields {
   membrane?: MembraneDefinition
   membraneAnchor?: MembraneProteinAnchor
   locked?: boolean
+  showName?: boolean
+  visualRotation?: number
+  visualScale?: number
 }
 
 export interface AssetReference {
@@ -454,4 +457,3 @@ export interface SceneRevision {
   createdAt: string
   scene: SceneFile
 }
-

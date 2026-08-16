@@ -57,6 +57,7 @@ import { applyVisualizationProfile, captureView, defaultVisualizationProfile, re
 import { applyMoleculeToNode, createMolecule, portsFromDomains, structuralModelForMolecule, syncArchitecture } from './molecules'
 import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
+import { CanvasDisplayProvider, cleanOverlays, detailOverlays, figurePresetOverlays, type CanvasOverlay, type CanvasOverlays, type CanvasViewMode, type FigurePreset } from './components/CanvasDisplayContext'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
@@ -211,6 +212,9 @@ function AppCanvas() {
   const [modules, setModules] = useState<TissueModule[]>(readModules)
   const [stylePreset, setStylePreset] = useState<StylePreset>(() => autosavedScene?.stylePreset ?? 'scientific-clean')
   const [visualizationProfile, setVisualizationProfile] = useState<VisualizationProfile>(() => autosavedScene?.visualizationProfile ?? { ...defaultVisualizationProfile })
+  const [canvasViewMode, setCanvasViewMode] = useState<CanvasViewMode>('clean')
+  const [figurePreset, setFigurePreset] = useState<FigurePreset>('publication')
+  const [canvasOverlays, setCanvasOverlays] = useState<CanvasOverlays>(() => ({ ...cleanOverlays }))
   const [views, setViews] = useState<SceneView[]>(() => autosavedScene?.views ?? [])
   const [activeViewId, setActiveViewId] = useState<string | undefined>(() => autosavedScene?.activeViewId)
   const [moleculeLibrary, setMoleculeLibrary] = useState<MoleculeDefinition[]>(() => autosavedScene?.moleculeLibrary ?? [])
@@ -253,6 +257,10 @@ function AppCanvas() {
   const lastHistoryScene = useRef<string | undefined>(undefined)
   const [historyVersion, setHistoryVersion] = useState(0)
   const editorClipboard = useRef<{ nodes: BioNodeType[]; edges: BioEdge[] } | undefined>(undefined)
+  const canvasDisplay = useMemo(() => ({ mode:canvasViewMode, overlays:canvasOverlays, molecules:moleculeLibrary }), [canvasOverlays, canvasViewMode, moleculeLibrary])
+  const setCanvasMode = useCallback((next:CanvasViewMode) => { setCanvasViewMode(next); setCanvasOverlays({ ...(next === 'clean' ? cleanOverlays : detailOverlays) }) }, [])
+  const applyFigurePreset = useCallback((next:FigurePreset) => { setFigurePreset(next); const overlays={...figurePresetOverlays[next]}; setCanvasOverlays(overlays); setCanvasViewMode(next === 'debug' ? 'detail' : 'clean'); setNotice(`${next} figure preset applied`) }, [])
+  const toggleCanvasOverlay = useCallback((key:CanvasOverlay) => setCanvasOverlays((current) => ({ ...current, [key]:!current[key] })), [])
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
@@ -1195,7 +1203,7 @@ function AppCanvas() {
           <Sidebar onAdd={(kind) => { addBiologicalNode(kind); setMobilePanel(undefined) }} targetPanel={targetPanel} onBrowseAssets={() => { setShowAssetBrowser(true); setMobilePanel(undefined) }} onAddCallout={() => { addCallout(); setMobilePanel(undefined) }} onOpenModules={() => { setShowModulePanel(true); setMobilePanel(undefined) }} />
         </div>
         <main className={`canvas-wrap tool-${drawingTool}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
-          <ReactFlow<BioNodeType, BioEdge>
+          <CanvasDisplayProvider value={canvasDisplay}><ReactFlow<BioNodeType, BioEdge>
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
@@ -1249,6 +1257,9 @@ function AppCanvas() {
               <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
               <button className="tool-button" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
               <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
+              <div className="canvas-view-switch" data-export-exclude="true" data-help="CLEAN은 최종 그림처럼 분자 형태만 표시하고, DETAIL은 이름·포트·구획 등 편집 정보를 표시합니다."><button className={canvasViewMode==='clean'?'active':''} onClick={()=>setCanvasMode('clean')}>CLEAN</button><button className={canvasViewMode==='detail'?'active':''} onClick={()=>setCanvasMode('detail')}>DETAIL</button></div>
+              <select className="figure-preset-select" aria-label="Figure preset" value={figurePreset} onChange={(event)=>applyFigurePreset(event.target.value as FigurePreset)} data-export-exclude="true" data-help="Publication은 무라벨 도식, Presentation은 이름 중심, Mechanism은 기전 설명, Debug는 모든 편집 정보를 표시합니다."><option value="publication">Publication</option><option value="presentation">Presentation</option><option value="mechanism">Mechanism</option><option value="debug">Debug</option></select>
+              <details className="overlay-menu" data-export-exclude="true"><summary>Overlays</summary><div>{([['names','Names'],['ports','Ports'],['anchors','Anchors'],['domains','Domains'],['functions','Functions'],['state','State'],['compartments','Compartments'],['interactionLabels','Interactions'],['ids','IDs'],['debug','Debug']] as [CanvasOverlay,string][]).map(([key,label])=><label key={key}><input type="checkbox" checked={canvasOverlays[key]} onChange={()=>toggleCanvasOverlay(key)}/>{label}</label>)}</div></details>
             </Panel>
             <Panel position="top-center" className="alignment-tools" aria-label="Alignment tools" data-help="Shift+클릭으로 둘 이상의 개체를 선택한 뒤 정렬 또는 균등 분배합니다. 선택한 개체의 세포 구획 제약은 유지됩니다.">
               <button title="Align left" aria-label="Align left" onClick={() => alignSelection('left')}><AlignStartVertical size={15} /></button>
@@ -1266,7 +1277,7 @@ function AppCanvas() {
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
             <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
             <Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>{drawingTool === 'select' ? 'Drag blank canvas to move view · Shift+drag to box-select' : drawingTool === 'pan' ? 'Drag canvas to move view · ESC to exit' : continuousTool ? 'Continuous creation · ESC to exit' : 'Create once · ESC to cancel'}</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>
-          </ReactFlow>
+          </ReactFlow></CanvasDisplayProvider>
           <LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>
           {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
           {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
@@ -1310,4 +1321,3 @@ function AppCanvas() {
 export default function App() {
   return <ErrorBoundary><ReactFlowProvider><AppCanvas /></ReactFlowProvider></ErrorBoundary>
 }
-

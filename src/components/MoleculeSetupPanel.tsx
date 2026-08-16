@@ -4,9 +4,9 @@ import { architectureForFormat, biologicalFunctionVocabulary, createMolecule, en
 import { uniProtProvider, type ProteinSearchResult } from '../integrations/uniprot'
 import { ProtVistaPanel } from '../integrations/protvista'
 import { isUniProtAccession, uniProtSpeciesOptions, type UniProtSpecies, type UniProtStage } from '../uniprot'
-import type { ConstructArchitecture, ConstructComponentType, DomainDefinition, MoleculeDefinition, MoleculeEntityClass, MoleculeOrigin, MoleculeTopology, StructuralTemplate } from '../types'
+import type { BioNodeData, ConstructArchitecture, ConstructComponentType, DomainDefinition, MoleculeDefinition, MoleculeEntityClass, MoleculeOrigin, MoleculeTopology, StructuralTemplate } from '../types'
 import { uid } from '../identity'
-import { StructureGlyph } from './StructureGlyph'
+import { MoleculeRenderer } from './MoleculeRenderer'
 import { canLookupUniProt } from '../uniprot'
 import { AntibodyArchitectureBuilder } from './AntibodyArchitectureBuilder'
 
@@ -17,6 +17,7 @@ const stages:Record<UniProtStage,string>={searching:'Searching UniProt…',fetch
 const antibodyClasses:MoleculeEntityClass[]=['antibody','adc']
 const engineeredClasses:MoleculeEntityClass[]=['antibody','fusion_protein','receptor_trap','adc','protein_drug_conjugate','engineered_protein']
 const editableMolecule=(item:MoleculeDefinition)=>structuredClone({...item,privacy:item.privacy==='private'?'private':'public'} as MoleculeDefinition)
+const StructureGlyph=({data}:{data:BioNodeData})=><MoleculeRenderer data={data} editorPreview/>
 
 export function MoleculeSetupPanel(props:Props) {
   const [bulk,setBulk]=useState('IL18\nIL18RA\nIL18RB\nSLC-7020\nBispecific-X'); const [selectedId,setSelectedId]=useState(props.initialMoleculeId??props.molecules[0]?.id)
@@ -62,4 +63,3 @@ function GenericConstructBuilder({molecule,onChange}:{molecule:MoleculeDefinitio
   const value=molecule.architecture??{kind:'fusion' as const,fc:false,specificities:[],components:[]}; const add=(type:ConstructComponentType)=>{ const components=[...value.components,{id:`component:${molecule.id}:${crypto.randomUUID().slice(0,6)}`,type,label:type.replaceAll('_',' '),order:value.components.length}]; onChange({...value,components}) }; const edit=(id:string,patch:Record<string,string>)=>onChange({...value,components:value.components.map((item)=>item.id===id?{...item,...patch}:item)})
   return <div className="generic-construct"><div className="component-tools">{(['protein_domain','linker','Fc','payload'] as ConstructComponentType[]).map((type)=><button key={type} onClick={()=>add(type)}><Plus size={12}/> {type.replaceAll('_',' ')}</button>)}</div>{value.components.map((item)=><article key={item.id}><strong>{item.order+1}</strong><label>Component<input value={item.label} onChange={(event)=>edit(item.id,{label:event.target.value})}/></label><label>Source protein<input value={item.sourceProtein??''} onChange={(event)=>edit(item.id,{sourceProtein:event.target.value})}/></label><label>Domain<input value={item.domainName??''} onChange={(event)=>edit(item.id,{domainName:event.target.value})}/></label><label>Function<input value={item.function??''} onChange={(event)=>edit(item.id,{function:event.target.value})}/></label><label>Target<input value={item.target??''} onChange={(event)=>edit(item.id,{target:event.target.value})}/></label><button onClick={()=>onChange({...value,components:value.components.filter((entry)=>entry.id!==item.id)})}><Trash2 size={12}/></button></article>)}</div>
 }
-
