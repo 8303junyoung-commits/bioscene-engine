@@ -415,6 +415,13 @@ button { color: inherit; }
 .structure-glyph text { fill: #61776e; font-size: 6px; font-weight: 800; }
 .structure-backbone,.domain-arm { fill: none; stroke: #72529a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
 .domain-tip { stroke: #fff; stroke-width: 1.5; }.tip-one { fill: #7955a5; }.tip-two { fill: #d58242; }.domain-fc { fill: #9b7ab8; }
+.antibody-heavy-chain,.antibody-fc-chain { fill: none; stroke: #76549e; stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.antibody-light-chain { fill: none; stroke: #a889c2; stroke-width: 4.5; stroke-linecap: round; }
+.antibody-variable-domain { stroke: #fff; stroke-width: 1.4; }
+.antibody-domain-seam,.antibody-fc-seam { fill: none; stroke: rgba(255,255,255,.72); stroke-width: 1.2; stroke-linecap: round; }
+.antibody-hinge circle { fill: #5c3b83; }.antibody-hinge path,.antibody-fab2-tail { fill: none; stroke: #5c3b83; stroke-width: 1.5; stroke-linecap: round; }
+.antibody-extra-unit { stroke: #fff; stroke-width: 1.2; }
+.antibody-label { fill: #665273 !important; font-size: 5.5px !important; letter-spacing: .02em; }
 .membrane-line { fill: none; stroke: #82ad9d; stroke-width: 3; stroke-linecap: round; }
 .domain-tm { fill: #447d69; }.domain-ecd { fill: #91c5b1; stroke: #39715d; stroke-width: 1.4; }.domain-icd { fill: none; stroke: #446b96; stroke-width: 3; stroke-linecap: round; }
 .protein-blob { fill: #e8b95e; stroke: #a97920; stroke-width: 1.8; }.protein-fold { fill: none; stroke: #fff3cf; stroke-width: 2; stroke-linecap: round; }

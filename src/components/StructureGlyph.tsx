@@ -2,6 +2,29 @@ import type { BioNodeData, StructuralTemplate } from '../types'
 
 const inferredTemplate = (data: BioNodeData): StructuralTemplate => data.kind === 'receptor' ? 'single_pass_receptor' : data.kind === 'antibody' ? 'igg' : data.kind === 'ligand' ? 'cytokine' : 'globular'
 const confidenceColor = (value:number) => value >= 90 ? '#2458d3' : value >= 70 ? '#20a7db' : value >= 50 ? '#f0c928' : '#ed6a35'
+const antibodyColors = ['#7753a5','#d4773c','#278ea3','#b44d78','#4e9361']
+
+function FabGlyph({color,label}:{color:string;label:string}) {
+  return <svg className="structure-glyph antibody-structure fab-structure" viewBox="0 0 72 64" aria-label={label}>
+    <path className="antibody-heavy-chain" d="M27 53C29 43 31 34 36 25L43 12"/>
+    <path className="antibody-light-chain" d="M38 49C39 39 43 29 48 21L53 13"/>
+    <rect className="antibody-variable-domain" style={{fill:color}} x="38" y="6" width="22" height="10" rx="5" transform="rotate(-43 49 11)"/>
+    <path className="antibody-domain-seam" d="M33 39l10 5M38 29l10 5"/>
+    <text className="antibody-label" x="7" y="59">Fab</text>
+  </svg>
+}
+
+function IgGGlyph({leftColor,rightColor,withFc=true,label,showLabels=false,extraColors=[],leftOpacity=1,rightOpacity=1,fcOpacity=1}:{leftColor:string;rightColor:string;withFc?:boolean;label:string;showLabels?:boolean;extraColors?:string[];leftOpacity?:number;rightOpacity?:number;fcOpacity?:number}) {
+  return <svg className="structure-glyph antibody-structure igg-structure" viewBox="0 0 72 64" aria-label={label}>
+    <g style={{opacity:leftOpacity}}><path className="antibody-heavy-chain" d="M34 38C29 34 24 27 17 17"/><path className="antibody-light-chain" d="M29 34C24 29 19 22 13 15"/><rect className="antibody-variable-domain" style={{fill:leftColor}} x="6" y="7" width="18" height="10" rx="5" transform="rotate(-43 15 12)"/><path className="antibody-domain-seam" d="M21 23l8-6M27 31l7-5"/></g>
+    <g style={{opacity:rightOpacity}}><path className="antibody-heavy-chain" d="M38 38C43 34 48 27 55 17"/><path className="antibody-light-chain" d="M43 34C48 29 53 22 59 15"/><rect className="antibody-variable-domain" style={{fill:rightColor}} x="48" y="7" width="18" height="10" rx="5" transform="rotate(43 57 12)"/><path className="antibody-domain-seam" d="M51 23l-8-6M45 31l-7-5"/></g>
+    <g className="antibody-hinge"><circle cx="34" cy="38" r="2"/><circle cx="38" cy="38" r="2"/><path d="M34 38h4"/></g>
+    {withFc&&<g style={{opacity:fcOpacity}}><path className="antibody-fc-chain" d="M34 40C33 47 31 53 30 60M38 40C39 47 41 53 42 60"/><path className="antibody-fc-seam" d="M31.5 49h9M30.5 56h11"/></g>}
+    {!withFc&&<path className="antibody-fab2-tail" d="M32 41q4 4 8 0"/>}
+    {extraColors.slice(0,4).map((color,index)=><circle key={`${color}-${index}`} className="antibody-extra-unit" style={{fill:color}} cx={28+index%2*16} cy={17+Math.floor(index/2)*8} r="3.5"/>)}
+    {showLabels&&<><text className="antibody-label" x="3" y="7">Fab</text><text className="antibody-label" x="58" y="7">Fab</text>{withFc&&<text className="antibody-label" x="46" y="60">Fc</text>}</>}
+  </svg>
+}
 
 export function StructureGlyph({ data }: { data: BioNodeData }) {
   const model = data.structuralModel
@@ -12,27 +35,18 @@ export function StructureGlyph({ data }: { data: BioNodeData }) {
   const architecture = model?.architecture
   if (architecture?.kind === 'antibody') {
     const units = architecture.components.filter((item) => item.type === 'binding_unit').slice(0,8)
-    const colors = ['#7955a5','#d58242','#3b8da0','#b75b7d','#5e9d63']
-    const positions = units.map((_item,index) => ({ x: units.length === 1 ? 36 : 8 + index * (56 / Math.max(1,units.length - 1)), y: 12 + (index % 2) * 5 }))
-    return <svg className="structure-glyph antibody-structure component-antibody" viewBox="0 0 72 64" aria-label={`${architecture.antibodyFormat ?? 'custom'} antibody architecture`}>
-      {positions.map((point,index) => { const specificityIndex=Math.max(0,architecture.specificities.findIndex((item)=>item.id===units[index].specificityId)); return <path key={`arm-${units[index].id}`} className="structure-backbone" style={{stroke:colors[specificityIndex%colors.length],strokeWidth:4}} d={`M36 39 L${point.x} ${point.y+6}`}/> })}
-      {units.map((unit,index) => { const point=positions[index]; const specificityIndex=Math.max(0,architecture.specificities.findIndex((item)=>item.id===unit.specificityId)); const unitType=architecture.specificities[specificityIndex]?.unitType; return <g key={unit.id}><rect x={point.x-6} y={point.y-5} width="12" height="11" rx={unitType==='VHH'?5:unitType==='scFv'?3:2} fill={colors[specificityIndex%colors.length]} stroke="#fff" strokeWidth="1.2"/><text x={point.x} y={point.y+2} textAnchor="middle" style={{fill:'#fff',fontSize:4}}>{unit.specificityId}{index+1}</text></g> })}
-      {architecture.fc && <><path className="structure-backbone" d="M36 38V50"/><rect className="domain-fc" x="28" y="48" width="16" height="12" rx="5"/><text x="36" y="56" textAnchor="middle" style={{fill:'#fff',fontSize:5}}>Fc</text></>}
-      {!architecture.fc && <circle cx="36" cy="40" r="4" fill="#91a9a0"/>}
-    </svg>
+    const unitColors=units.map((unit)=>antibodyColors[Math.max(0,architecture.specificities.findIndex((item)=>item.id===unit.specificityId))%antibodyColors.length])
+    const label=`${architecture.antibodyFormat ?? 'custom'} antibody architecture`
+    if (units.length<=1&&!architecture.fc) return <FabGlyph color={unitColors[0]??antibodyColors[0]} label={label}/>
+    return <IgGGlyph leftColor={unitColors[0]??antibodyColors[0]} rightColor={unitColors[1]??unitColors[0]??antibodyColors[0]} withFc={architecture.fc} label={label} showLabels={model?.displayLevel==='full'} extraColors={unitColors.slice(2)}/>
   }
+  if (template === 'fab') return <FabGlyph color={antibodyColors[0]} label="Fab structural representation"/>
   if (['igg','bispecific_igg','asymmetric_bispecific','fab2'].includes(template)) {
     const left = domains.find((domain) => /fab.?1/i.test(domain.label))
     const right = domains.find((domain) => /fab.?2/i.test(domain.label))
     const fc = domains.find((domain) => /^fc$/i.test(domain.label))
     const bispecific = template !== 'igg'
-    return <svg className="structure-glyph antibody-structure" viewBox="0 0 72 64" aria-label={`${template} structural representation`}>
-      <path className="structure-backbone" d="M36 56V34M36 36 17 15M36 36 55 15"/>
-      <path className="domain-arm arm-one" style={{opacity:opacity(left?.id)}} d="M12 19 20 11M52 11l8 8"/>
-      <circle className="domain-tip tip-one" style={{opacity:opacity(left?.id)}} cx="12" cy="19" r="5"/><circle className={`domain-tip ${bispecific ? 'tip-two' : 'tip-one'}`} style={{opacity:opacity(right?.id)}} cx="60" cy="19" r="5"/>
-      <rect className="domain-fc" style={{opacity:opacity(fc?.id)}} x="29" y="48" width="14" height="11" rx="5"/>
-      {model?.displayLevel !== 'hidden' && <><text x="4" y="9">Fab1</text><text x="49" y="9">Fab2</text><text x="45" y="59">Fc</text></>}
-    </svg>
+    return <IgGGlyph leftColor={antibodyColors[0]} rightColor={bispecific?antibodyColors[1]:antibodyColors[0]} withFc={template!=='fab2'} label={`${template} structural representation`} showLabels={model?.displayLevel==='full'} leftOpacity={opacity(left?.id)} rightOpacity={opacity(right?.id)} fcOpacity={opacity(fc?.id)}/>
   }
   const trace=model?.structureTrace
   if (trace?.points && trace.points.length>1) {
