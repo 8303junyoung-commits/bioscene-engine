@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  // ELK is already loaded only when Auto layout is requested. Its bundled worker
+  // is intentionally self-contained, so use a limit that still catches growth in
+  // ordinary application chunks without warning for this isolated dependency.
+  build: { chunkSizeWarningLimit: 1500 },
   server: { headers: securityHeaders() },
   preview: { headers: securityHeaders() },
 })
