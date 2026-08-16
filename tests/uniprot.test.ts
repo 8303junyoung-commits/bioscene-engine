@@ -4,6 +4,7 @@ import { parseSceneFile } from '../src/utils'
 import { defaultVisualizationProfile } from '../src/sceneViews'
 import { defaultFigureWorkspace } from '../src/workspace'
 import './core.test'
+import { canonicalUniProtGene, uniProtSearchExpression } from '../supabase/functions/_shared/uniprotQuery'
 
 const storage = new Map<string,string>()
 Object.defineProperty(globalThis,'localStorage',{ value:{ getItem:(key:string)=>storage.get(key)??null, setItem:(key:string,value:string)=>storage.set(key,value), removeItem:(key:string)=>storage.delete(key) }, configurable:true })
@@ -28,6 +29,9 @@ assert.equal(byGene.molecule?.uniprotAccession,'Q9HB29'); assert.equal(byGene.mo
 assert.equal(byGene.molecule?.entityClass,'unknown_custom','UniProt must suggest, not silently accept, identity'); assert.equal(byGene.molecule?.suggestedEntityClass,'natural_protein'); assert.equal(byGene.molecule?.suggestedTopology,'single_pass_membrane'); assert.equal(byGene.molecule?.topologyConfirmed,false)
 assert.equal(byGene.molecule?.structuralModel.structureTrace?.source,'AlphaFold DB'); assert.equal(byGene.molecule?.structuralModel.structureTrace?.points.length,3)
 assert.equal(canLookupUniProt(createMolecule('IL18RB','public')),true,'new unknown public proteins must remain lookup-enabled'); assert.equal(canLookupUniProt(createMolecule('Private','private')),false)
+assert.equal(canLookupUniProt(createMolecule('IL18RA','public')),true,'IL18RA must be lookup-enabled before identity confirmation')
+assert.equal(canonicalUniProtGene('IL18RA'),'IL18R1'); assert.equal(canonicalUniProtGene('IL-18Rα'),'IL18R1'); assert.equal(canonicalUniProtGene('CD218a'),'IL18R1'); assert.equal(canonicalUniProtGene('IL18RB'),'IL18RAP')
+assert.match(uniProtSearchExpression('IL18RA',9606),/gene_exact:IL18R1/)
 
 storage.clear(); calls=0; const direct=createMolecule('receptor','public'); direct.uniprotAccession='Q9HB29'; await lookupUniProt(direct); await lookupUniProt(direct); assert.equal(calls,1,'accession cache should avoid duplicate requests')
 
@@ -54,6 +58,7 @@ const bsPorts=portsFromDomains(bispecific); assert.equal(bsPorts.length,2); asse
 const legacy=createMolecule('Legacy proprietary receptor'); const legacyMolecule=structuredClone(legacy) as unknown as Record<string,unknown>; for (const field of ['entityClass','origin','topology','saveStatus','identitySource','identityConfidence','topologySource','topologyConfidence','topologyConfirmed','architecture']) delete legacyMolecule[field]
 const migrated=parseSceneFile({schema:'bioscene.scene.v0.13',title:'Legacy',createdAt:new Date().toISOString(),constraintMode:'biological',nodes:[],edges:[],stylePreset:'scientific-clean',review:{status:'draft',reviewers:[],notes:'',updatedAt:new Date().toISOString()},literature:[],collaboration:{participants:[],comments:[],activity:[]},visualizationProfile:defaultVisualizationProfile,views:[],moleculeLibrary:[legacyMolecule],customFunctions:[],workspace:defaultFigureWorkspace})
 assert.equal(migrated?.schema,'bioscene.scene.v0.14'); assert.equal(migrated?.moleculeLibrary[0].entityClass,'unknown_custom'); assert.equal(migrated?.moleculeLibrary[0].saveStatus,'needs_review'); assert.equal(migrated?.moleculeLibrary[0].topologyConfirmed,false)
+assert.equal(migrated?.moleculeLibrary[0].privacy,'public','legacy public protein entries must remain lookup-enabled after migration')
 
 console.log('Model tests passed: identity, confirmation, topology, format, valency, specificity, ports, provenance, provider normalization, privacy, and migration scenarios')
 

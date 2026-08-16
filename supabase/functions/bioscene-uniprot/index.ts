@@ -1,7 +1,8 @@
+import { canonicalUniProtGene, uniProtSearchExpression } from '../_shared/uniprotQuery.ts'
+
 const upstream = 'https://rest.uniprot.org/uniprotkb'
 const allowedOrigins = new Set((Deno.env.get('BIOSCENE_ALLOWED_ORIGINS') ?? 'http://localhost:5173,http://127.0.0.1:4173,https://bioscene-engine.onrender.com').split(',').map((item) => item.trim()).filter(Boolean))
 const allowedOrganisms = new Set([9606, 10090, 10116, 9544])
-const publicGeneAliases: Record<string,string> = { IL18RB: 'IL18RAP' }
 const accessionPattern = /^(?:[OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?$/i
 
 type Coordinate = { x:number; y:number; z:number; confidence:number }
@@ -83,15 +84,19 @@ Deno.serve(async (request) => {
       const query = typeof body.query === 'string' ? body.query.trim() : ''
       const organismId = Number(body.organismId)
       if (!/^[\p{L}\p{N} ._()'/-]{1,100}$/u.test(query) || !allowedOrganisms.has(organismId)) return reply(request, 400, { error: 'Invalid UniProt search query', code: 'not-found' })
-      const safe = query.replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim()
-      const exact = safe.replace(/[^A-Za-z0-9_-]/g, ''); const canonical = publicGeneAliases[exact.toUpperCase()] ?? exact
-      const expression = canonical ? `(reviewed:true) AND (organism_id:${organismId}) AND ((gene_exact:${canonical}) OR (gene:${canonical}) OR (${canonical}))` : `(reviewed:true) AND (organism_id:${organismId}) AND (${safe})`
+      const expression = uniProtSearchExpression(query, organismId)
       const url = new URL(`${upstream}/search`); url.searchParams.set('query', expression); url.searchParams.set('format', 'json'); url.searchParams.set('size', '8')
       const result = await fetchUniProt(url)
       if (!result.data) return reply(request, result.status, { error: result.error, code: result.code })
       const results = (result.data as { results?: unknown[] }).results
       if (!Array.isArray(results) || !results.length) return reply(request, 404, { error: 'No UniProt entry found for this query.', code: 'not-found' })
-      return reply(request, 200, { results })
+      const canonical = canonicalUniProtGene(query).toUpperCase()
+      const exactResults = results.filter((item) => {
+        if (!item || typeof item !== 'object') return false
+        const genes = (item as { genes?: { geneName?: { value?: string } }[] }).genes
+        return genes?.[0]?.geneName?.value?.toUpperCase() === canonical
+      })
+      return reply(request, 200, { results: exactResults.length ? exactResults : results })
     }
     return reply(request, 400, { error: 'Unsupported lookup action', code: 'service' })
   } catch (error) {
