@@ -54,7 +54,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { BackendConflictError, enrichLiterature, pullRoom, pushRoom, sanitizedEndpoint } from './backend'
 import { sendMagicLink, signOutSupabase, supabaseApiEndpoint, supabaseConfigured, watchSupabaseSession } from './supabaseClient'
 import { applyVisualizationProfile, captureView, defaultVisualizationProfile, restoreView, sceneTypeLabels } from './sceneViews'
-import { applyMoleculeToNode, createMolecule, portsFromDomains, structuralModelForMolecule, syncArchitecture } from './molecules'
+import { applyMoleculeToNode, createMolecule, portsFromDomains, scenePlacementForMolecule, structuralModelForMolecule, syncArchitecture } from './molecules'
 import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
 import { CanvasDisplayProvider, cleanOverlays, detailOverlays, figurePresetOverlays, type CanvasOverlay, type CanvasOverlays, type CanvasViewMode, type FigurePreset } from './components/CanvasDisplayContext'
@@ -551,11 +551,12 @@ function AppCanvas() {
   },{}), [nodes])
 
   const addMoleculeToScene = useCallback((molecule: MoleculeDefinition) => {
-    const kind: 'receptor' | 'antibody' | 'ligand' = molecule.moleculeClass === 'antibody' ? 'antibody' : molecule.structuralModel.topology.transmembrane ? 'receptor' : 'ligand'
+    const placement = scenePlacementForMolecule(molecule)
+    const kind = placement.kind
     const id = uid(kind)
-    const base: BioNodeType = { id, type:'bio', selected:true, position:findAvailablePosition(nodes,kind === 'receptor' ? 'membrane' : 'extracellular'), data:createBioData(kind,molecule.name,{panelId:'single',visibility:'visible',positionMode:'auto'}) }
+    const base: BioNodeType = { id, type:'bio', selected:true, position:findAvailablePosition(nodes,placement.compartment), data:createBioData(kind,molecule.name,{panelId:'single',visibility:'visible',positionMode:'auto'}) }
     let node = applyMoleculeToNode(base,molecule)
-    const membrane = kind === 'receptor' ? nodes.find((item)=>item.data.kind === 'membrane' && item.data.membrane) : undefined
+    const membrane = placement.anchorToMembrane ? nodes.find((item)=>item.data.kind === 'membrane' && item.data.membrane) : undefined
     if (membrane) {
       const target = anchoredPosition(membrane,.5)
       if (target) node = { ...node, position:{x:target.x-77.5,y:target.y-32}, data:{...node.data,compartment:'membrane',membraneAnchor:{membraneId:membrane.id,pathPosition:.5,orientation:'normal',angle:target.angle}} }
@@ -1356,3 +1357,4 @@ function AppCanvas() {
 export default function App() {
   return <ErrorBoundary><ReactFlowProvider><AppCanvas /></ReactFlowProvider></ErrorBoundary>
 }
+

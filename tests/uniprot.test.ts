@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { architectureForFormat, createMolecule, portsFromDomains, structuralModelForMolecule } from '../src/molecules'
+import { applyMoleculeToNode, architectureForFormat, compatibleStructuralModel, createMolecule, portsFromDomains, scenePlacementForMolecule, structuralModelForMolecule, visualTemplatesForMolecule } from '../src/molecules'
+import { createBioData } from '../src/biology'
 import { parseSceneFile } from '../src/utils'
 import { defaultVisualizationProfile } from '../src/sceneViews'
 import { defaultFigureWorkspace } from '../src/workspace'
@@ -46,6 +47,27 @@ assert.equal(uniProtProvider.normalize(createMolecule('Local only')),undefined,'
 
 const nameOnly=createMolecule('IL18RB receptor bispecific antibody')
 assert.equal(nameOnly.entityClass,'unknown_custom'); assert.equal(nameOnly.topology,'unknown'); assert.equal(nameOnly.saveStatus,'unclassified')
+
+const placementCases = [
+  ['antibody','soluble','antibody','extracellular',false],
+  ['natural_protein','single_pass_membrane','receptor','membrane',true],
+  ['natural_protein','multi_pass_membrane','receptor','membrane',true],
+  ['natural_protein','membrane_associated','receptor','membrane',true],
+  ['natural_protein','secreted','ligand','extracellular',false],
+  ['natural_protein','intracellular','signal','cytoplasm',false],
+  ['natural_protein','nuclear','transcription','nucleus',false],
+  ['natural_protein','organelle_associated','signal','mitochondria',false],
+] as const
+for (const [entityClass,topology,kind,compartment,anchorToMembrane] of placementCases) {
+  const molecule=createMolecule(`${entityClass}-${topology}`); molecule.entityClass=entityClass; molecule.moleculeClass=entityClass==='antibody'?'antibody':'protein'; molecule.topology=topology
+  assert.deepEqual(scenePlacementForMolecule(molecule),{kind,compartment,anchorToMembrane},`${entityClass}/${topology} scene placement`)
+}
+const staleReceptor=createMolecule('Stale receptor'); staleReceptor.entityClass='natural_protein'; staleReceptor.topology='single_pass_membrane'; staleReceptor.moleculeClass='protein'; staleReceptor.structuralModel={...staleReceptor.structuralModel,template:'igg',architecture:architectureForFormat(staleReceptor.id,'igg')}
+const repaired=compatibleStructuralModel(staleReceptor); assert.equal(repaired.template,'single_pass_receptor'); assert.equal(repaired.architecture,undefined,'natural receptors cannot retain antibody architecture')
+const repairedNode=applyMoleculeToNode({id:'node:test',type:'bio',position:{x:0,y:0},data:createBioData('antibody','Old antibody')},staleReceptor)
+assert.equal(repairedNode.data.kind,'receptor'); assert.equal(repairedNode.data.compartment,'membrane'); assert.equal(repairedNode.data.structuralModel?.template,'single_pass_receptor'); assert.ok(repairedNode.data.ports.some((port)=>port.id==='signal-out')); assert.ok(!repairedNode.data.ports.some((port)=>port.id==='fab-left'))
+assert.ok(repairedNode.data.ports.every((port)=>!port.domainId||repairedNode.data.domains.some((domain)=>domain.id===port.domainId)),'semantic ports must be remapped to imported structural domains')
+const gpcr=createMolecule('GPCR'); gpcr.entityClass='natural_protein'; gpcr.topology='multi_pass_membrane'; gpcr.structuralModel={...gpcr.structuralModel,template:'gpcr',templateSource:'user',templateConfidence:'confirmed'}; assert.equal(structuralModelForMolecule(gpcr).template,'gpcr','compatible user-selected topology templates must survive save/rebuild'); assert.deepEqual(visualTemplatesForMolecule(gpcr),['multi_pass_receptor','gpcr','ion_channel','receptor_complex'])
 
 const formatCases = [
   ['igg',2,true],['fab',1,false],['fab2',2,false],['scfv',1,false],['vhh',1,false],['scfv_fc',2,true],['fab_fc',2,true],['bispecific',2,true],['trispecific',3,true],['multispecific',3,true],['multivalent',4,true],['antibody_fusion',3,true],['custom_antibody',0,false],
