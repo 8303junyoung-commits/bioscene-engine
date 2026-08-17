@@ -3,11 +3,12 @@ import type { BioNodeData, MoleculeDefinition } from '../types'
 import { AssetImage } from './AssetImage'
 import { StructureGlyph } from './StructureGlyph'
 import { useCanvasDisplay } from './CanvasDisplayContext'
-
-const kindFor = (molecule:MoleculeDefinition):BioNodeData['kind'] => molecule.entityClass === 'antibody' || molecule.entityClass === 'adc' ? 'antibody' : molecule.topology.includes('membrane') ? 'receptor' : 'ligand'
+import { compatibleStructuralModel, scenePlacementForMolecule } from '../molecules'
 
 function moleculeData(definition:MoleculeDefinition):BioNodeData {
-  return { kind:kindFor(definition), label:definition.name, compartment:definition.topology.includes('membrane')?'membrane':'extracellular', domains:definition.structuralModel.domains, sites:[], ports:[], anchors:[], states:[], allowedCompartments:['extracellular'], moleculeId:definition.id, structuralModel:definition.structuralModel }
+  const placement=scenePlacementForMolecule(definition)
+  const structuralModel=compatibleStructuralModel(definition)
+  return { kind:placement.kind, label:definition.name, compartment:placement.compartment, domains:structuralModel.domains, sites:[], ports:[], anchors:[], states:[], allowedCompartments:[placement.compartment], moleculeId:definition.id, structuralModel }
 }
 
 export function MoleculeRenderer({ data, definition, editorPreview=false }:{ data?:BioNodeData; definition?:MoleculeDefinition; editorPreview?:boolean }) {
@@ -20,3 +21,4 @@ export function MoleculeRenderer({ data, definition, editorPreview=false }:{ dat
     {resolved.asset ? <AssetImage file={resolved.asset.file} alt={resolved.label} fallback={fallback}/> : fallback}
   </div>
 }
+

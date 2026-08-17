@@ -1,4 +1,5 @@
-import type { AntibodyFormat, BioNode, ConstructArchitecture, ConstructComponent, DomainDefinition, FunctionalPortType, InteractionType, MoleculeClass, MoleculeDefinition, MoleculeEntityClass, MoleculeSpecificity, MoleculeTopology, PortDefinition, StructuralModel, StructuralTemplate } from './types'
+import { createBioData, semanticDefaults } from './biology'
+import type { AntibodyFormat, BioKind, BioNode, Compartment, ConstructArchitecture, ConstructComponent, DomainDefinition, FunctionalPortType, InteractionType, MoleculeClass, MoleculeDefinition, MoleculeEntityClass, MoleculeSpecificity, MoleculeTopology, PortDefinition, StructuralModel, StructuralTemplate } from './types'
 
 export const biologicalFunctionVocabulary = ['Binding','Recruitment','Activation','Agonism','Antagonism','Blocking','Blockade','Neutralization','Clustering','Cell anchoring','Cell-cell bridging','Cytokine capture','Receptor recruitment','Dimerization','Oligomerization','Cleavage','Proteolysis','Phosphorylation','Dephosphorylation','Enzymatic activity','Transport','Translocation','Internalization','Trafficking','Secretion','Anchoring','Scaffolding','Adaptor recruitment','Signal initiation','Signal propagation','Transcriptional regulation','Degradation','Payload targeting','Payload delivery','Fc receptor binding','Complement engagement']
 
@@ -15,6 +16,55 @@ export function moleculeClassFor(entityClass:MoleculeEntityClass):MoleculeClass 
   if (['antibody','adc'].includes(entityClass)) return 'antibody'
   if (['fusion_protein','receptor_trap','protein_drug_conjugate','engineered_protein'].includes(entityClass)) return 'engineered_construct'
   return 'protein'
+}
+
+export interface MoleculeScenePlacement {
+  kind: Extract<BioKind,'receptor'|'antibody'|'ligand'|'signal'|'transcription'>
+  compartment: Compartment
+  anchorToMembrane: boolean
+}
+
+const antibodyTemplates = new Set<StructuralTemplate>(['igg','fab','fab2','bispecific_igg','asymmetric_bispecific'])
+const singlePassTemplates = new Set<StructuralTemplate>(['single_pass_receptor','receptor_complex'])
+const multiPassTemplates = new Set<StructuralTemplate>(['multi_pass_receptor','gpcr','ion_channel','receptor_complex'])
+
+function isTemplateCompatible(molecule:MoleculeDefinition,template:StructuralTemplate) {
+  if (molecule.entityClass === 'antibody' || molecule.entityClass === 'adc') return antibodyTemplates.has(template)
+  if (molecule.topology === 'single_pass_membrane') return singlePassTemplates.has(template)
+  if (molecule.topology === 'multi_pass_membrane') return multiPassTemplates.has(template)
+  return !antibodyTemplates.has(template) && !singlePassTemplates.has(template) && !multiPassTemplates.has(template)
+}
+
+export function visualTemplatesForMolecule(molecule:MoleculeDefinition):StructuralTemplate[] {
+  if (molecule.entityClass==='antibody'||molecule.entityClass==='adc') return ['igg','fab','fab2','bispecific_igg','asymmetric_bispecific']
+  if (molecule.topology==='single_pass_membrane') return ['single_pass_receptor','receptor_complex']
+  if (molecule.topology==='multi_pass_membrane') return ['multi_pass_receptor','gpcr','ion_channel','receptor_complex']
+  if (molecule.entityClass==='receptor_trap') return ['receptor_trap','fc_fusion','custom_construct']
+  if (molecule.entityClass==='fusion_protein'||molecule.entityClass==='engineered_protein'||molecule.entityClass==='protein_drug_conjugate') return ['custom_construct','fc_fusion','globular']
+  if (molecule.entityClass==='cytokine_ligand') return ['cytokine','globular']
+  if (molecule.entityClass==='enzyme') return ['enzyme','globular']
+  return ['globular','enzyme','cytokine','custom_construct']
+}
+
+/** The canonical scene semantics for a saved molecule. Names never decide placement. */
+export function scenePlacementForMolecule(molecule:MoleculeDefinition):MoleculeScenePlacement {
+  if (molecule.entityClass === 'antibody' || molecule.entityClass === 'adc') return {kind:'antibody',compartment:'extracellular',anchorToMembrane:false}
+  if (molecule.topology === 'single_pass_membrane' || molecule.topology === 'multi_pass_membrane') return {kind:'receptor',compartment:'membrane',anchorToMembrane:true}
+  if (molecule.topology === 'membrane_associated') return {kind:'receptor',compartment:'membrane',anchorToMembrane:true}
+  if (molecule.topology === 'nuclear') return {kind:'transcription',compartment:'nucleus',anchorToMembrane:false}
+  if (molecule.topology === 'intracellular') return {kind:'signal',compartment:'cytoplasm',anchorToMembrane:false}
+  if (molecule.topology === 'organelle_associated') return {kind:'signal',compartment:'mitochondria',anchorToMembrane:false}
+  return {kind:'ligand',compartment:'extracellular',anchorToMembrane:false}
+}
+
+/** Prevent stale or manually incompatible templates/architectures from changing molecule identity. */
+export function compatibleStructuralModel(molecule:MoleculeDefinition):StructuralModel {
+  const model = molecule.structuralModel
+  const fallback = isTemplateCompatible(molecule,model.template) ? model : structuralModelForMolecule({...molecule,structuralModel:{...model,architecture:undefined}})
+  return {
+    ...fallback,
+    architecture: molecule.entityClass === 'antibody' || molecule.entityClass === 'adc' || molecule.moleculeClass === 'engineered_construct' ? fallback.architecture : undefined,
+  }
 }
 
 export function suggestedTemplate(_name:string,moleculeClass:MoleculeClass,hasTransmembrane=false):StructuralTemplate {
@@ -54,12 +104,14 @@ export function structuralModelForMolecule(molecule:MoleculeDefinition):Structur
     return {template,templateSource:'user',templateConfidence:'confirmed',displayLevel:molecule.structuralModel?.displayLevel??'functional',visualScaling:'schematic',modified:true,classification:'soluble',topology:{signalPeptide:true,extracellular:true,transmembrane:false,cytoplasmic:false},domains,architecture}
   }
   const topology=molecule.topology
-  const template:StructuralTemplate=topology==='single_pass_membrane'?'single_pass_receptor':topology==='multi_pass_membrane'?'multi_pass_receptor':molecule.entityClass==='cytokine_ligand'?'cytokine':molecule.entityClass==='enzyme'?'enzyme':molecule.entityClass==='fusion_protein'||molecule.entityClass==='receptor_trap'||molecule.entityClass==='engineered_protein'?'custom_construct':'globular'
+  const suggested:StructuralTemplate=topology==='single_pass_membrane'?'single_pass_receptor':topology==='multi_pass_membrane'?'multi_pass_receptor':molecule.entityClass==='cytokine_ligand'?'cytokine':molecule.entityClass==='enzyme'?'enzyme':molecule.entityClass==='receptor_trap'?'receptor_trap':molecule.entityClass==='fusion_protein'||molecule.entityClass==='engineered_protein'?'custom_construct':'globular'
+  const keepSelected=molecule.structuralModel.templateSource==='user'&&molecule.structuralModel.templateConfidence==='confirmed'&&isTemplateCompatible(molecule,molecule.structuralModel.template)
+  const template:StructuralTemplate=keepSelected?molecule.structuralModel.template:suggested
   const fallback=defaultStructuralModel(molecule.id,molecule.name,moleculeClassFor(molecule.entityClass),template)
   const preservedDomains=molecule.structuralModel?.template===template&&molecule.structuralModel.domains.length
     ? molecule.structuralModel.domains
     : fallback.domains
-  return {...fallback,domains:preservedDomains,templateSource:molecule.topologySource==='UniProt'?'UniProt':molecule.identitySource==='user'?'user':'inferred',templateConfidence:molecule.topologyConfidence??'low',architecture:molecule.architecture,modified:true}
+  return {...fallback,domains:preservedDomains,templateSource:molecule.topologySource==='UniProt'?'UniProt':molecule.identitySource==='user'?'user':'inferred',templateConfidence:molecule.topologyConfidence??'low',architecture:molecule.moleculeClass==='engineered_construct'?molecule.architecture:undefined,modified:true}
 }
 
 export function createMolecule(name:string,privacy:MoleculeDefinition['privacy']='private'):MoleculeDefinition {
@@ -76,6 +128,19 @@ export function portsFromDomains(molecule:MoleculeDefinition):PortDefinition[] {
 }
 
 export function applyMoleculeToNode(node:BioNode,molecule:MoleculeDefinition):BioNode {
-  const generated=portsFromDomains(molecule); const generatedIds=new Set(generated.map((port)=>port.id)); const retained=node.data.ports.filter((port)=>!port.id.startsWith(`port:${molecule.id}:`)&&!generatedIds.has(port.id)); const required=node.data.domains.filter((domain)=>retained.some((port)=>port.domainId===domain.id)||node.data.sites.some((site)=>site.domainId===domain.id)); const domainIds=new Set(molecule.structuralModel.domains.map((item)=>item.id)); const domains=[...molecule.structuralModel.domains,...required.filter((item)=>!domainIds.has(item.id))]
-  return {...node,data:{...node.data,label:molecule.name,target:molecule.geneName??node.data.target,moleculeId:molecule.id,structuralModel:molecule.structuralModel,domains,ports:[...retained,...generated]}}
+  const placement=scenePlacementForMolecule(molecule)
+  const structuralModel=compatibleStructuralModel(molecule)
+  const normalized={...molecule,structuralModel}
+  const generated=portsFromDomains(normalized)
+  const defaultPortIds=new Set(Object.values(semanticDefaults).flatMap((item)=>item.ports.map((port)=>port.id)))
+  const retained=node.data.ports.filter((port)=>!defaultPortIds.has(port.id)&&!port.id.startsWith(`port:${molecule.id}:`))
+  const defaults=createBioData(placement.kind,molecule.name)
+  const domainMap=new Map(defaults.domains.map((domain)=>[domain.id,structuralModel.domains.find((candidate)=>candidate.kind===domain.kind)?.id??structuralModel.domains[0]?.id]))
+  const sites=defaults.sites.map((site)=>({...site,domainId:domainMap.get(site.domainId)??site.domainId}))
+  const semanticPorts=defaults.ports.map((port)=>({...port,domainId:port.domainId?domainMap.get(port.domainId)??port.domainId:undefined}))
+  const ports=[...semanticPorts,...retained,...generated].filter((port,index,all)=>all.findIndex((candidate)=>candidate.id===port.id)===index)
+  const defaultState=placement.kind==='signal'&&placement.compartment==='mitochondria'?'state:signal:mitochondrial':defaults.state
+  const state=defaults.states.some((candidate)=>candidate.id===node.data.state&&candidate.allowedCompartments.includes(placement.compartment))?node.data.state:defaultState
+  return {...node,data:{...node.data,...defaults,label:molecule.name,target:molecule.geneName??node.data.target,moleculeId:molecule.id,kind:placement.kind,compartment:placement.compartment,state,structuralModel,domains:structuralModel.domains,sites,ports}}
 }
+
