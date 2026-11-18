@@ -28,6 +28,9 @@ export function assertVisibleBlocksForCapture(root: HTMLElement, expectedIds: st
 export function inlineSvgPaintForCapture(root:HTMLElement) {
   const properties=['fill','fill-opacity','stroke','stroke-width','stroke-opacity','stroke-linecap','stroke-linejoin','stroke-dasharray','stroke-dashoffset','opacity','display','visibility','font-size','font-family','font-weight','text-anchor','paint-order','vector-effect']
   const snapshots=Array.from(root.querySelectorAll<SVGElement>('svg *')).map(element=>({element,style:element.getAttribute('style'),paint:properties.map(key=>[key,getComputedStyle(element).getPropertyValue(key)] as const)}))
-  for(const {element,paint} of snapshots)for(const [key,value] of paint)element.style.setProperty(key,value)
+  for(const {element,paint} of snapshots)for(const [key,value] of paint){
+    const normalized = value.includes('url(') ? value.replace(/url\(["']?[^)"']*#([^)"']+)["']?\)/g, 'url(#$1)') : value
+    element.style.setProperty(key,normalized)
+  }
   return ()=>{for(const {element,style} of snapshots){if(style===null)element.removeAttribute('style');else element.setAttribute('style',style)}}
 }

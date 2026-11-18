@@ -59,9 +59,7 @@ export async function createQaController(config,run) {
       await page.evaluate(()=>{localStorage.clear();sessionStorage.clear()})
       await page.reload()
       await waitQa()
-      await page.getByRole('button',{name:'Advanced / Blank Canvas',exact:true}).click()
-      await page.getByRole('button',{name:/Create \/ Resize Workspace/}).click()
-      await page.getByRole('dialog',{name:'Figure Workspace Setup'}).waitFor({state:'hidden'})
+      await page.getByTestId('start-empty').click()
       await page.waitForTimeout(150)
     },
     async activateTool(tool){await page.getByTestId(`tool-${tool}`).click()},

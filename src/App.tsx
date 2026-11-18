@@ -8,7 +8,6 @@ import {
   ReactFlow,
   ReactFlowProvider,
   ViewportPortal,
-  addEdge,
   applyEdgeChanges,
   applyNodeChanges,
   type Connection,
@@ -16,7 +15,41 @@ import {
   type NodeChange,
   type ReactFlowInstance,
 } from '@xyflow/react'
-import { AlignCenterHorizontal, AlignCenterVertical, AlignEndHorizontal, AlignEndVertical, AlignHorizontalDistributeCenter, AlignStartHorizontal, AlignStartVertical, AlignVerticalDistributeCenter, BookOpen, ClipboardCheck, Cloud, Download, FileJson, FlaskConical, LayoutTemplate, LockKeyhole, PanelsTopLeft, Plus, Redo2, RotateCcw, Save, Settings2, Sparkles, Undo2, UnlockKeyhole, Upload, Workflow } from 'lucide-react'
+import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  Ban,
+  BookOpen,
+  Circle,
+  ClipboardCheck,
+  Cloud,
+  Component,
+  Copy,
+  Download,
+  FlaskConical,
+  FolderOpen,
+  Hand,
+  HelpCircle,
+  Link2,
+  Maximize2,
+  Minus,
+  MousePointer2,
+  PanelsTopLeft,
+  Pill,
+  Pin,
+  Plus,
+  Redo2,
+  Save,
+  Settings2,
+  ShieldCheck,
+  Sparkles,
+  Type,
+  Undo2,
+  Workflow,
+  Zap,
+} from 'lucide-react'
 import { toPng, toSvg } from 'html-to-image'
 import PptxGenJS from 'pptxgenjs'
 import JSZip from 'jszip'
@@ -25,7 +58,6 @@ import { CellNode } from './components/CellNode'
 import { Inspector } from './components/Inspector'
 import { InteractionEdge } from './components/InteractionEdge'
 import { MechanismComposer } from './components/MechanismComposer'
-import { Sidebar } from './components/Sidebar'
 import { SmartAssetBrowser } from './components/SmartAssetBrowser'
 import { ProductionPanel } from './components/ProductionPanel'
 import { AnnotationNode } from './components/AnnotationNode'
@@ -35,19 +67,53 @@ import { TissueModulePanel } from './components/TissueModulePanel'
 import { CollaborationPanel } from './components/CollaborationPanel'
 import { ContextHelp } from './components/ContextHelp'
 import { SceneSettingsPanel } from './components/SceneSettingsPanel'
-import { NewFigureDialog } from './components/NewFigureDialog'
 import { MoleculeSetupPanel, type MoleculeApplyPolicy } from './components/MoleculeSetupPanel'
 import { MembraneNode } from './components/MembraneNode'
 import { WorkspaceSetupPanel } from './components/WorkspaceSetupPanel'
-import { BlankQuickStart } from './components/BlankQuickStart'
-import { EditorToolbar } from './components/EditorToolbar'
-import { LayersPanel } from './components/LayersPanel'
 import { ObjectContextMenu, type ContextTarget } from './components/ObjectContextMenu'
-import { createBioData, inferInteraction, semanticDefaults, validateConnection } from './biology'
+import { StudioPalette, type PaletteTab } from './components/StudioPalette'
+import { StudioInspector } from './components/StudioInspector'
+import { createBioData, inferInteraction } from './biology'
 import { cloneTemplate, DEFAULT_TEMPLATE_ID, sceneTemplates } from './data'
 import { sceneFromMechanism } from './mechanism'
-import type { AlignmentAction, AssetReference, BioEdge, BioKind, BioNode as BioNodeType, BioNodePatch, CollaborationState, ConstraintMode, DrawingTool, ExportPreset, FigureWorkspace, InteractionData, InteractionType, LiteratureRecord, MembraneDefinition, MembranePoint, MoleculeDefinition, ParsedMechanism, ReviewMetadata, RoomConfig, SceneFile, SceneRevision, SceneTemplateId, SceneView, StylePreset, TissueModule, VisualizationProfile } from './types'
-import { autoLayout, biologicalWarnings, constrainNode, downloadText, findAvailablePosition, parseSceneFile, parseTissueModule } from './utils'
+import type {
+  AlignmentAction,
+  AssetReference,
+  BioEdge,
+  BioKind,
+  BioNode as BioNodeType,
+  BioNodePatch,
+  CollaborationState,
+  ConstraintMode,
+  DrawingTool,
+  ExportPreset,
+  FigureWorkspace,
+  InteractionData,
+  InteractionType,
+  LiteratureRecord,
+  MembraneDefinition,
+  MembranePoint,
+  MoleculeDefinition,
+  ParsedMechanism,
+  ReviewMetadata,
+  RoomConfig,
+  SceneFile,
+  SceneRevision,
+  SceneTemplateId,
+  SceneView,
+  StylePreset,
+  TissueModule,
+  VisualizationProfile,
+} from './types'
+import {
+  autoLayout,
+  biologicalWarnings,
+  constrainNode,
+  downloadText,
+  findAvailablePosition,
+  parseSceneFile,
+  parseTissueModule,
+} from './utils'
 import { uid } from './identity'
 import { markerForInteraction } from './visualGrammar'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -57,12 +123,19 @@ import { applyVisualizationProfile, captureView, defaultVisualizationProfile, re
 import { applyMoleculeToNode, createMolecule, portsFromDomains, scenePlacementForMolecule, structuralModelForMolecule, syncArchitecture } from './molecules'
 import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } from './membraneGeometry'
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
-import { CanvasDisplayProvider, cleanOverlays, detailOverlays, figurePresetOverlays, type CanvasOverlay, type CanvasOverlays, type CanvasViewMode, type FigurePreset } from './components/CanvasDisplayContext'
+import { CanvasDisplayProvider, cleanOverlays, type CanvasOverlay, type CanvasOverlays } from './components/CanvasDisplayContext'
 import { qaApiEnabled, qaClone } from './qaApi'
-import { SimpleMoaPanel, SimpleInspector } from './components/SimpleMoaPanel'
-import { addSimpleDrug, changeRepresentation, generateCells, layoutSimpleCells, pruneSimpleEdges, simpleConnection, treatedComparison, type CellDraft, type SimpleRelation } from './simpleMoa'
-import './simpleMoa.css'
+import { addSimpleDrug, changeRepresentation, layoutSimpleCells, pruneSimpleEdges, treatedComparison, type SimpleRelation } from './simpleMoa'
+import {
+  connectStudioNodes,
+  placeCatalogMolecule,
+  placeStudioCell,
+  STUDIO_BLUEPRINTS,
+  type CatalogItem,
+  type StudioBlueprint,
+} from './studioPresets'
 import { assertVisibleBlocksForCapture, blueprintRelationship, inlineSvgPaintForCapture } from './exportGraphics'
+import './studio.css'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
@@ -72,20 +145,36 @@ const MODULE_KEY = 'bioscene.tissue.modules.v0.10'
 const ROOM_KEY = 'bioscene.room.config.v0.10'
 const ROOM_TOKEN_KEY = 'bioscene.room.token.session.v0.10'
 const emptyCollaboration = (): CollaborationState => ({ participants: [], comments: [], activity: [] })
+
 const exportSpecs: Record<ExportPreset, { width: number; height: number; background?: string; layout: 'LAYOUT_WIDE' | 'LAYOUT_4X3' | 'BIOSCENE_SQUARE' }> = {
   'slide-wide': { width: 1920, height: 1080, background: '#f8fbf9', layout: 'LAYOUT_WIDE' },
   'slide-standard': { width: 1600, height: 1200, background: '#f8fbf9', layout: 'LAYOUT_4X3' },
   'journal-square': { width: 1800, height: 1800, background: '#ffffff', layout: 'BIOSCENE_SQUARE' },
   transparent: { width: 2400, height: 1350, layout: 'LAYOUT_WIDE' },
 }
-const styleBackground: Record<StylePreset, string> = { 'scientific-clean': '#f8fbf9', 'journal-light': '#ffffff', 'presentation-dark': '#17211e' }
+
+const styleBackground: Record<StylePreset, string> = {
+  'scientific-clean': '#f6faf8',
+  'journal-light': '#ffffff',
+  'presentation-dark': '#17211e',
+}
+
 const defaultLabels: Record<Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>, string> = {
-  receptor: 'Receptor', ligand: 'Ligand', antibody: 'Antibody', signal: 'Signal node', transcription: 'Transcription',
+  receptor: 'Receptor',
+  ligand: 'Cytokine',
+  antibody: 'Antibody',
+  signal: 'Kinase',
+  transcription: 'Transcription',
 }
 
 function readAutosavedScene() {
   try {
-    const raw = localStorage.getItem(AUTOSAVE_KEY) ?? localStorage.getItem('bioscene.scene.autosave.v0.13') ?? localStorage.getItem('bioscene.scene.autosave.v0.12') ?? localStorage.getItem('bioscene.scene.autosave.v0.11') ?? localStorage.getItem('bioscene.scene.autosave.v0.10') ?? localStorage.getItem('bioscene.scene.autosave.v0.9') ?? localStorage.getItem('bioscene.scene.autosave.v0.8')
+    const raw =
+      localStorage.getItem(AUTOSAVE_KEY) ??
+      localStorage.getItem('bioscene.scene.autosave.v0.13') ??
+      localStorage.getItem('bioscene.scene.autosave.v0.12') ??
+      localStorage.getItem('bioscene.scene.autosave.v0.11') ??
+      localStorage.getItem('bioscene.scene.autosave.v0.10')
     if (!raw) return undefined
     return parseSceneFile(JSON.parse(raw))
   } catch {
@@ -95,42 +184,62 @@ function readAutosavedScene() {
 
 function readRevisions(): SceneRevision[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(REVISION_KEY) ?? localStorage.getItem('bioscene.scene.revisions.v0.9') ?? '[]')
+    const value: unknown = JSON.parse(localStorage.getItem(REVISION_KEY) ?? '[]')
     if (!Array.isArray(value)) return []
-    return value.flatMap((item) => {
-      if (!item || typeof item !== 'object') return []
-      const candidate = item as Partial<SceneRevision>
-      const scene = parseSceneFile(candidate.scene)
-      return typeof candidate.id === 'string' && typeof candidate.label === 'string' && typeof candidate.createdAt === 'string' && scene
-        ? [{ id: candidate.id, label: candidate.label, createdAt: candidate.createdAt, scene }]
-        : []
-    }).slice(0, 5)
-  } catch { return [] }
+    return value
+      .flatMap((item) => {
+        if (!item || typeof item !== 'object') return []
+        const candidate = item as Partial<SceneRevision>
+        const scene = parseSceneFile(candidate.scene)
+        return typeof candidate.id === 'string' && typeof candidate.label === 'string' && typeof candidate.createdAt === 'string' && scene
+          ? [{ id: candidate.id, label: candidate.label, createdAt: candidate.createdAt, scene }]
+          : []
+      })
+      .slice(0, 5)
+  } catch {
+    return []
+  }
 }
 
 function readModules(): TissueModule[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(MODULE_KEY) ?? localStorage.getItem('bioscene.tissue.modules.v0.9') ?? '[]')
+    const value: unknown = JSON.parse(localStorage.getItem(MODULE_KEY) ?? '[]')
     return Array.isArray(value) ? value.map(parseTissueModule).filter((item): item is TissueModule => !!item).slice(0, 30) : []
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 function readRoom(): RoomConfig {
   const fallbackEndpoint = String(import.meta.env.VITE_BIOSCENE_API_BASE ?? '')
   try {
-    const value = JSON.parse(localStorage.getItem(ROOM_KEY) ?? localStorage.getItem('bioscene.room.config.v0.9') ?? '{}')
-    const endpoint = typeof value.endpoint === 'string' && value.endpoint ? sanitizedEndpoint(value.endpoint) : (fallbackEndpoint ? sanitizedEndpoint(fallbackEndpoint) : '')
+    const value = JSON.parse(localStorage.getItem(ROOM_KEY) ?? '{}')
+    const endpoint =
+      typeof value.endpoint === 'string' && value.endpoint
+        ? sanitizedEndpoint(value.endpoint)
+        : fallbackEndpoint
+          ? sanitizedEndpoint(fallbackEndpoint)
+          : ''
     return {
-      endpoint, roomId: typeof value.roomId === 'string' ? value.roomId : '',
+      endpoint,
+      roomId: typeof value.roomId === 'string' ? value.roomId : '',
       authMode: ['none', 'bearer', 'api-key'].includes(value.authMode) ? value.authMode : 'none',
       apiKeyHeader: typeof value.apiKeyHeader === 'string' && /^[A-Za-z][A-Za-z0-9-]{1,63}$/.test(value.apiKeyHeader) ? value.apiKeyHeader : 'X-API-Key',
       revision: typeof value.revision === 'string' ? value.revision : undefined,
       lastSyncedAt: typeof value.lastSyncedAt === 'string' ? value.lastSyncedAt : undefined,
     }
-  } catch { return { endpoint: fallbackEndpoint, roomId: '', authMode: 'none', apiKeyHeader: 'X-API-Key' } }
+  } catch {
+    return { endpoint: fallbackEndpoint, roomId: '', authMode: 'none', apiKeyHeader: 'X-API-Key' }
+  }
 }
 
-function readRoomToken() { try { return sessionStorage.getItem(ROOM_TOKEN_KEY) ?? '' } catch { return '' } }
+function readRoomToken() {
+  try {
+    return sessionStorage.getItem(ROOM_TOKEN_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
 
 function csvCell(value: unknown) {
   const source = String(value ?? '')
@@ -141,37 +250,62 @@ function csvCell(value: unknown) {
 async function fitDataUrl(source: string, width: number, height: number, background?: string, credit?: string) {
   const image = new window.Image()
   image.src = source
-  await new Promise<void>((resolve, reject) => { image.onload = () => resolve(); image.onerror = () => reject(new Error('Image render failed')) })
-  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
-  const context = canvas.getContext('2d'); if (!context) throw new Error('Canvas unavailable')
-  if (background) { context.fillStyle = background; context.fillRect(0, 0, width, height) }
-  const scale = Math.min(width / image.width, height / image.height) * .94
-  const drawWidth = image.width * scale; const drawHeight = image.height * scale
+  await new Promise<void>((resolve, reject) => {
+    image.onload = () => resolve()
+    image.onerror = () => reject(new Error('Image render failed'))
+  })
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Canvas unavailable')
+  if (background) {
+    context.fillStyle = background
+    context.fillRect(0, 0, width, height)
+  }
+  const scale = Math.min(width / image.width, height / image.height) * 0.94
+  const drawWidth = image.width * scale
+  const drawHeight = image.height * scale
   context.drawImage(image, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight)
-  if (credit) { context.fillStyle = background === '#17211e' ? 'rgba(23,33,30,.88)' : 'rgba(255,255,255,.88)'; context.fillRect(0, height - 34, width, 34); context.fillStyle = background === '#17211e' ? '#d8e5df' : '#53665e'; context.font = '16px sans-serif'; context.textAlign = 'right'; context.fillText(credit.slice(0, 180), width - 18, height - 11) }
+  if (credit) {
+    context.fillStyle = background === '#17211e' ? 'rgba(23,33,30,.88)' : 'rgba(255,255,255,.88)'
+    context.fillRect(0, height - 34, width, 34)
+    context.fillStyle = background === '#17211e' ? '#d8e5df' : '#53665e'
+    context.font = '16px sans-serif'
+    context.textAlign = 'right'
+    context.fillText(credit.slice(0, 180), width - 18, height - 11)
+  }
   return canvas.toDataURL('image/png')
 }
 
 function assetAttribution(nodes: BioNodeType[]) {
-  const assets = Array.from(new Map(nodes.flatMap((node) => node.data.asset ? [[node.data.asset.id, node.data.asset] as const] : [])).values())
+  const assets = Array.from(new Map(nodes.flatMap((node) => (node.data.asset ? [[node.data.asset.id, node.data.asset] as const] : []))).values())
   const full = assets.map((asset) => `${asset.name} — ${asset.author} — ${asset.licenseSpdx}\nSource: ${asset.sourceUrl}\nLicense: ${asset.licenseUrl}`).join('\n\n')
-  const compact = assets.length ? `Assets: ${assets.slice(0, 3).map((asset) => `${asset.name} © ${asset.author} (${asset.licenseSpdx})`).join('; ')}${assets.length > 3 ? `; +${assets.length - 3} more` : ''}` : ''
+  const compact = assets.length
+    ? `Assets: ${assets.slice(0, 3).map((asset) => `${asset.name} © ${asset.author} (${asset.licenseSpdx})`).join('; ')}${assets.length > 3 ? `; +${assets.length - 3} more` : ''}`
+    : ''
   return { full, compact }
 }
 
 function addSvgCredit(dataUrl: string, credit: string, width: number, height: number) {
   if (!credit) return dataUrl
-  const comma = dataUrl.indexOf(','); if (comma < 0) return dataUrl
+  const comma = dataUrl.indexOf(',')
+  if (comma < 0) return dataUrl
   const payload = dataUrl.slice(comma + 1)
-  const svg = dataUrl.slice(0, comma).includes(';base64') ? new TextDecoder().decode(Uint8Array.from(atob(payload), (character) => character.charCodeAt(0))) : decodeURIComponent(payload)
+  const svg = dataUrl.slice(0, comma).includes(';base64')
+    ? new TextDecoder().decode(Uint8Array.from(atob(payload), (character) => character.charCodeAt(0)))
+    : decodeURIComponent(payload)
   const escaped = credit.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-  const next = svg.replace('</svg>', `<rect x="0" y="${height - 32}" width="${width}" height="32" fill="rgba(255,255,255,.88)"/><text x="${width - 16}" y="${height - 10}" text-anchor="end" font-family="sans-serif" font-size="14" fill="#53665e">${escaped.slice(0, 180)}</text></svg>`)
+  const next = svg.replace(
+    '</svg>',
+    `<rect x="0" y="${height - 32}" width="${width}" height="32" fill="rgba(255,255,255,.88)"/><text x="${width - 16}" y="${height - 10}" text-anchor="end" font-family="sans-serif" font-size="14" fill="#53665e">${escaped.slice(0, 180)}</text></svg>`,
+  )
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(next)}`
 }
 
 function nodeSize(node: BioNodeType) {
-  const width = typeof node.style?.width === 'number' ? node.style.width : Number.parseFloat(String(node.style?.width ?? 155)) || 155
-  const height = typeof node.style?.height === 'number' ? node.style.height : Number.parseFloat(String(node.style?.height ?? 64)) || 64
+  const width = typeof node.style?.width === 'number' ? node.style.width : Number.parseFloat(String(node.style?.width ?? 96)) || 96
+  const height = typeof node.style?.height === 'number' ? node.style.height : Number.parseFloat(String(node.style?.height ?? 76)) || 76
   return { width, height }
 }
 
@@ -197,49 +331,50 @@ function repositionMembraneAnchors(items: BioNodeType[], membraneNode: BioNodeTy
   })
 }
 
+const mapSimpleRelation = (r: SimpleRelation): InteractionType =>
+  r === 'Block' ? 'BLOCK' : r === 'Signal' ? 'ACTIVATE' : 'BIND'
+
 function AppCanvas() {
-  const autosavedScene = useMemo(readAutosavedScene, [])
-  const [simple, setSimple] = useState(true)
-  const [welcome, setWelcome] = useState(true)
-  const [simplePanel, setSimplePanel] = useState<'cell'|'drug'>()
-  const [simpleRelation, setSimpleRelation] = useState<SimpleRelation>()
-  const [relationSource, setRelationSource] = useState<string>()
-  const [visualDetail, setVisualDetail] = useState(1)
-  const [simpleScope, setSimpleScope] = useState('Cell')
-  const [simpleExport, setSimpleExport] = useState<'svg'|'png'|'package'>('svg')
-  const [newSimpleFigure, setNewSimpleFigure] = useState(true)
-  const [nodes, setNodes] = useState<BioNodeType[]>(() => autosavedScene?.nodes ?? [])
-  const [edges, setEdges] = useState<BioEdge[]>(() => autosavedScene?.edges ?? [])
-  const [mode, setMode] = useState<ConstraintMode>(() => autosavedScene?.constraintMode ?? 'biological')
-  const [templateId, setTemplateId] = useState<SceneTemplateId>(() => autosavedScene?.templateId ?? DEFAULT_TEMPLATE_ID)
-  const [sceneTitle, setSceneTitle] = useState(() => autosavedScene?.title ?? 'New MoA')
-  const [sceneCreatedAt, setSceneCreatedAt] = useState(() => autosavedScene?.createdAt ?? new Date().toISOString())
-  const [mechanism, setMechanism] = useState<ParsedMechanism | undefined>(() => autosavedScene?.mechanism)
-  const [review, setReview] = useState<ReviewMetadata>(() => autosavedScene?.review ?? { status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
-  const [literature, setLiterature] = useState<LiteratureRecord[]>(() => autosavedScene?.literature ?? [])
-  const [collaboration, setCollaboration] = useState<CollaborationState>(() => autosavedScene?.collaboration ?? emptyCollaboration())
+  const initialData = useMemo(() => {
+    const saved = readAutosavedScene()
+    if (saved) return { saved, starter: undefined }
+    const starter = STUDIO_BLUEPRINTS[0].build()
+    return { saved: undefined, starter }
+  }, [])
+
+  const [paletteTab, setPaletteTab] = useState<PaletteTab>('presets')
+  const [exportFormat, setExportFormat] = useState<'svg' | 'png' | 'pptx' | 'package'>('svg')
+  const [connectMode, setConnectMode] = useState<{ interaction: InteractionType; indirect?: boolean; sourceId?: string }>()
+
+  const [nodes, setNodes] = useState<BioNodeType[]>(() => initialData.saved?.nodes ?? initialData.starter?.nodes ?? [])
+  const [edges, setEdges] = useState<BioEdge[]>(() => initialData.saved?.edges ?? initialData.starter?.edges ?? [])
+  const [mode, setMode] = useState<ConstraintMode>(() => initialData.saved?.constraintMode ?? 'free')
+  const [templateId, setTemplateId] = useState<SceneTemplateId>(() => initialData.saved?.templateId ?? DEFAULT_TEMPLATE_ID)
+  const [sceneTitle, setSceneTitle] = useState(() => initialData.saved?.title ?? initialData.starter?.title ?? '새 MoA 그림')
+  const [sceneCreatedAt, setSceneCreatedAt] = useState(() => initialData.saved?.createdAt ?? new Date().toISOString())
+  const [mechanism, setMechanism] = useState<ParsedMechanism | undefined>(() => initialData.saved?.mechanism)
+  const [review, setReview] = useState<ReviewMetadata>(() => initialData.saved?.review ?? { status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
+  const [literature, setLiterature] = useState<LiteratureRecord[]>(() => initialData.saved?.literature ?? [])
+  const [collaboration, setCollaboration] = useState<CollaborationState>(() => initialData.saved?.collaboration ?? emptyCollaboration())
   const [room, setRoom] = useState<RoomConfig>(readRoom)
   const [roomToken, setRoomToken] = useState(readRoomToken)
   const [signedInEmail, setSignedInEmail] = useState<string>()
   const [isAuthenticating, setIsAuthenticating] = useState(false)
   const [modules, setModules] = useState<TissueModule[]>(readModules)
-  const [stylePreset, setStylePreset] = useState<StylePreset>(() => autosavedScene?.stylePreset ?? 'scientific-clean')
-  const [visualizationProfile, setVisualizationProfile] = useState<VisualizationProfile>(() => autosavedScene?.visualizationProfile ?? { ...defaultVisualizationProfile })
-  const [canvasViewMode, setCanvasViewMode] = useState<CanvasViewMode>('clean')
-  const [figurePreset, setFigurePreset] = useState<FigurePreset>('publication')
-  const [canvasOverlays, setCanvasOverlays] = useState<CanvasOverlays>(() => ({ ...cleanOverlays }))
-  const [views, setViews] = useState<SceneView[]>(() => autosavedScene?.views ?? [])
-  const [activeViewId, setActiveViewId] = useState<string | undefined>(() => autosavedScene?.activeViewId)
-  const [moleculeLibrary, setMoleculeLibrary] = useState<MoleculeDefinition[]>(() => autosavedScene?.moleculeLibrary ?? [])
-  const [customFunctions, setCustomFunctions] = useState<string[]>(() => autosavedScene?.customFunctions ?? [])
-  const [workspace, setWorkspace] = useState<FigureWorkspace>(() => autosavedScene?.workspace ?? { ...defaultFigureWorkspace })
+  const [stylePreset, setStylePreset] = useState<StylePreset>(() => initialData.saved?.stylePreset ?? 'scientific-clean')
+  const [visualizationProfile, setVisualizationProfile] = useState<VisualizationProfile>(() => initialData.saved?.visualizationProfile ?? { ...defaultVisualizationProfile, detailLevel: 4 })
+  const [canvasOverlays, setCanvasOverlays] = useState<CanvasOverlays>(() => ({ ...cleanOverlays, names: true }))
+  const [views, setViews] = useState<SceneView[]>(() => initialData.saved?.views ?? [])
+  const [activeViewId, setActiveViewId] = useState<string | undefined>(() => initialData.saved?.activeViewId)
+  const [moleculeLibrary, setMoleculeLibrary] = useState<MoleculeDefinition[]>(() => initialData.saved?.moleculeLibrary ?? initialData.starter?.library ?? [])
+  const [customFunctions, setCustomFunctions] = useState<string[]>(() => initialData.saved?.customFunctions ?? [])
+  const [workspace, setWorkspace] = useState<FigureWorkspace>(() => initialData.saved?.workspace ?? { ...defaultFigureWorkspace })
+
   const [showWorkspaceSetup, setShowWorkspaceSetup] = useState(false)
   const [drawingTool, setDrawingTool] = useState<DrawingTool>('select')
   const [draftMembrane, setDraftMembrane] = useState<{ flow: MembranePoint[]; screen: MembranePoint[] }>()
   const [continuousTool, setContinuousTool] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [layersOpen, setLayersOpen] = useState(true)
-  const [mobilePanel, setMobilePanel] = useState<'assets' | 'inspector'>()
   const [contextTarget, setContextTarget] = useState<ContextTarget>()
   const [autosaveStatus, setAutosaveStatus] = useState<'saving' | 'saved'>('saved')
   const [exportPreset, setExportPreset] = useState<ExportPreset>('slide-wide')
@@ -252,7 +387,6 @@ function AppCanvas() {
   const [showModulePanel, setShowModulePanel] = useState(false)
   const [showCollaborationPanel, setShowCollaborationPanel] = useState(false)
   const [showSceneSettings, setShowSceneSettings] = useState(false)
-  const [showNewFigure, setShowNewFigure] = useState(false)
   const [showMoleculeSetup, setShowMoleculeSetup] = useState(false)
   const [setupMoleculeId, setSetupMoleculeId] = useState<string>()
   const [isSyncing, setIsSyncing] = useState(false)
@@ -260,8 +394,9 @@ function AppCanvas() {
   const [selectedNodeId, setSelectedNodeId] = useState<string>()
   const [alignmentNodeIds, setAlignmentNodeIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>()
-  const [notice, setNotice] = useState(autosavedScene ? 'Saved figure is available to continue.' : 'Choose a cell to begin.')
+  const [notice, setNotice] = useState('개체를 드래그해 배치하고, 호버 점 드래그 또는 상단 연결 도구로 상호작용을 연결하세요.')
   const [isLayingOut, setIsLayingOut] = useState(false)
+
   const flowRef = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const instanceRef = useRef<ReactFlowInstance<BioNodeType, BioEdge> | undefined>(undefined)
@@ -271,110 +406,255 @@ function AppCanvas() {
   const [historyVersion, setHistoryVersion] = useState(0)
   const editorClipboard = useRef<{ nodes: BioNodeType[]; edges: BioEdge[] } | undefined>(undefined)
   const qaErrorsRef = useRef<string[]>([])
-  const canvasDisplay = useMemo(() => ({ mode:simple?'clean' as const:canvasViewMode, overlays:simple?{...cleanOverlays,names:true}:canvasOverlays, molecules:moleculeLibrary, simple, visualDetail }), [canvasOverlays, canvasViewMode, moleculeLibrary, simple, visualDetail])
-  const setCanvasMode = useCallback((next:CanvasViewMode) => { setCanvasViewMode(next); setCanvasOverlays({ ...(next === 'clean' ? cleanOverlays : detailOverlays) }) }, [])
-  const applyFigurePreset = useCallback((next:FigurePreset) => { setFigurePreset(next); const overlays={...figurePresetOverlays[next]}; setCanvasOverlays(overlays); setCanvasViewMode(next === 'debug' ? 'detail' : 'clean'); setNotice(`${next} figure preset applied`) }, [])
-  const toggleCanvasOverlay = useCallback((key:CanvasOverlay) => setCanvasOverlays((current) => ({ ...current, [key]:!current[key] })), [])
 
+  const canvasDisplay = useMemo(
+    () => ({
+      mode: 'clean' as const,
+      overlays: canvasOverlays,
+      molecules: moleculeLibrary,
+      simple: true,
+      visualDetail: 2,
+    }),
+    [canvasOverlays, moleculeLibrary],
+  )
+
+  const toggleCanvasOverlay = useCallback(
+    (key: CanvasOverlay) => setCanvasOverlays((current) => ({ ...current, [key]: !current[key] })),
+    [],
+  )
+
+  // QA Instrumentation Hooks
   useEffect(() => {
     if (!qaApiEnabled()) return
-    const recordError = (value:unknown) => { const message=value instanceof Error?`${value.name}: ${value.message}`:String(value); qaErrorsRef.current=[...qaErrorsRef.current,message].slice(-100) }
-    const onError = (event:ErrorEvent) => recordError(event.error ?? event.message)
-    const onRejection = (event:PromiseRejectionEvent) => recordError(event.reason)
-    window.addEventListener('error', onError); window.addEventListener('unhandledrejection', onRejection)
-    return () => { window.removeEventListener('error', onError); window.removeEventListener('unhandledrejection', onRejection) }
+    const recordError = (value: unknown) => {
+      const message = value instanceof Error ? `${value.name}: ${value.message}` : String(value)
+      qaErrorsRef.current = [...qaErrorsRef.current, message].slice(-100)
+    }
+    const onError = (event: ErrorEvent) => recordError(event.error ?? event.message)
+    const onRejection = (event: PromiseRejectionEvent) => recordError(event.reason)
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
   }, [])
 
   useEffect(() => {
     if (!qaApiEnabled()) return
     window.__BIOSCENE_QA__ = {
-      version:1,
-      getSceneObjects:()=>qaClone(nodes),
-      getSceneObject:(id)=>qaClone(nodes.find((node)=>node.id===id)),
-      getSelectedObject:()=>qaClone(nodes.find((node)=>node.id===selectedNodeId)),
-      getMoleculeDefinitions:()=>qaClone(moleculeLibrary),
-      getMoleculeDefinition:(name)=>qaClone(moleculeLibrary.find((item)=>item.name.toLowerCase()===name.toLowerCase())),
-      getInteractions:()=>qaClone(edges),
-      getMembranes:()=>qaClone(nodes.filter((node)=>node.data.kind==='membrane')),
-      getWorkspace:()=>qaClone(workspace),
-      getCurrentView:()=>qaClone({ canvasViewMode, figurePreset, overlays:canvasOverlays, visualizationProfile, activeViewId }),
-      getHistoryState:()=>({undoCount:undoStack.current.length,redoCount:redoStack.current.length}),
-      getAppErrors:()=>[...qaErrorsRef.current],
+      version: 1,
+      getSceneObjects: () => qaClone(nodes),
+      getSceneObject: (id) => qaClone(nodes.find((node) => node.id === id)),
+      getSelectedObject: () => qaClone(nodes.find((node) => node.id === selectedNodeId)),
+      getMoleculeDefinitions: () => qaClone(moleculeLibrary),
+      getMoleculeDefinition: (name) => qaClone(moleculeLibrary.find((item) => item.name.toLowerCase() === name.toLowerCase())),
+      getInteractions: () => qaClone(edges),
+      getMembranes: () => qaClone(nodes.filter((node) => node.data.kind === 'membrane')),
+      getWorkspace: () => qaClone(workspace),
+      getCurrentView: () => qaClone({ canvasViewMode: 'clean', figurePreset: 'presentation', overlays: canvasOverlays, visualizationProfile, activeViewId }),
+      getHistoryState: () => ({ undoCount: undoStack.current.length, redoCount: redoStack.current.length }),
+      getAppErrors: () => [...qaErrorsRef.current],
     }
-    return () => { delete window.__BIOSCENE_QA__ }
-  }, [activeViewId, canvasOverlays, canvasViewMode, edges, figurePreset, moleculeLibrary, nodes, selectedNodeId, visualizationProfile, workspace])
+    return () => {
+      delete window.__BIOSCENE_QA__
+    }
+  }, [activeViewId, canvasOverlays, edges, moleculeLibrary, nodes, selectedNodeId, visualizationProfile, workspace])
 
   const selectedNode = nodes.find((node) => node.id === selectedNodeId)
   const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)
   const targetPanel = selectedNode?.data.panelId ?? (nodes.some((node) => node.data.panelId === 'treated') ? 'treated' : 'single')
   const documentNodes = useMemo(() => nodes.map((node) => ({ ...node, selected: undefined })), [nodes])
   const documentEdges = useMemo(() => edges.map((edge) => ({ ...edge, selected: undefined })), [edges])
-  const currentScene = useMemo<SceneFile>(() => ({
-    schema: 'bioscene.scene.v0.14', title: sceneTitle, templateId, createdAt: sceneCreatedAt,
-    constraintMode: mode, nodes: documentNodes, edges: documentEdges, mechanism, stylePreset, review, literature, collaboration,
-    visualizationProfile, views, activeViewId, moleculeLibrary, customFunctions, workspace,
-  }), [activeViewId, collaboration, customFunctions, documentEdges, documentNodes, literature, mechanism, mode, moleculeLibrary, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
+
+  const currentScene = useMemo<SceneFile>(
+    () => ({
+      schema: 'bioscene.scene.v0.14',
+      title: sceneTitle,
+      templateId,
+      createdAt: sceneCreatedAt,
+      constraintMode: mode,
+      nodes: documentNodes,
+      edges: documentEdges,
+      mechanism,
+      stylePreset,
+      review,
+      literature,
+      collaboration,
+      visualizationProfile,
+      views,
+      activeViewId,
+      moleculeLibrary,
+      customFunctions,
+      workspace,
+    }),
+    [
+      activeViewId,
+      collaboration,
+      customFunctions,
+      documentEdges,
+      documentNodes,
+      literature,
+      mechanism,
+      mode,
+      moleculeLibrary,
+      review,
+      sceneCreatedAt,
+      sceneTitle,
+      stylePreset,
+      templateId,
+      views,
+      visualizationProfile,
+      workspace,
+    ],
+  )
 
   useEffect(() => {
-    if (welcome) return
     setAutosaveStatus('saving')
     const timer = window.setTimeout(() => {
-      try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(currentScene)); setAutosaveStatus('saved') } catch { setNotice('Autosave stopped: storage is full. Save JSON now.') }
+      try {
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(currentScene))
+        setAutosaveStatus('saved')
+      } catch {
+        setNotice('자동 저장 용량이 가득 찼습니다. JSON으로 백업해 주세요.')
+      }
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [currentScene, welcome])
+  }, [currentScene])
 
-  useEffect(() => { try { localStorage.setItem(REVISION_KEY, JSON.stringify(revisions.slice(0, 5))) } catch { setNotice('Revision storage is full. Export JSON before continuing.') } }, [revisions])
-  useEffect(() => { try { localStorage.setItem(MODULE_KEY, JSON.stringify(modules.slice(0, 30))) } catch { setNotice('Module storage is full. Remove old modules.') } }, [modules])
-  useEffect(() => { try { localStorage.setItem(ROOM_KEY, JSON.stringify({ ...room, endpoint: room.endpoint ? sanitizedEndpoint(room.endpoint) : '' })) } catch { /* incomplete or unsafe endpoints are intentionally not persisted */ } }, [room])
-  useEffect(() => { try { if (roomToken) sessionStorage.setItem(ROOM_TOKEN_KEY, roomToken); else sessionStorage.removeItem(ROOM_TOKEN_KEY) } catch { /* session-only credentials are optional */ } }, [roomToken])
-  useEffect(() => watchSupabaseSession((session) => {
-    setSignedInEmail(session?.user.email)
-    if (session?.access_token) {
-      setRoomToken(session.access_token)
-      setRoom((value) => ({ ...value, endpoint: value.endpoint || supabaseApiEndpoint, authMode: 'bearer' }))
-    } else if (room.endpoint === supabaseApiEndpoint) setRoomToken('')
-  }), [room.endpoint])
+  useEffect(() => {
+    try {
+      localStorage.setItem(REVISION_KEY, JSON.stringify(revisions.slice(0, 5)))
+    } catch {
+      /* ignore quota */
+    }
+  }, [revisions])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MODULE_KEY, JSON.stringify(modules.slice(0, 30)))
+    } catch {
+      /* ignore quota */
+    }
+  }, [modules])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ROOM_KEY, JSON.stringify({ ...room, endpoint: room.endpoint ? sanitizedEndpoint(room.endpoint) : '' }))
+    } catch {
+      /* ignore unsafe endpoint */
+    }
+  }, [room])
+
+  useEffect(() => {
+    try {
+      if (roomToken) sessionStorage.setItem(ROOM_TOKEN_KEY, roomToken)
+      else sessionStorage.removeItem(ROOM_TOKEN_KEY)
+    } catch {
+      /* session-only */
+    }
+  }, [roomToken])
+
+  useEffect(
+    () =>
+      watchSupabaseSession((session) => {
+        setSignedInEmail(session?.user.email)
+        if (session?.access_token) {
+          setRoomToken(session.access_token)
+          setRoom((value) => ({ ...value, endpoint: value.endpoint || supabaseApiEndpoint, authMode: 'bearer' }))
+        } else if (room.endpoint === supabaseApiEndpoint) setRoomToken('')
+      }),
+    [room.endpoint],
+  )
 
   const signIn = useCallback(async (email: string) => {
     setIsAuthenticating(true)
-    try { await sendMagicLink(email); setNotice(`Sign-in link sent to ${email.trim().toLowerCase()}`) }
-    catch (error) { setNotice(`Sign-in failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-    finally { setIsAuthenticating(false) }
+    try {
+      await sendMagicLink(email)
+      setNotice(`${email.trim().toLowerCase()}로 로그인 링크를 발송했습니다.`)
+    } catch (error) {
+      setNotice(`로그인 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    } finally {
+      setIsAuthenticating(false)
+    }
   }, [])
 
   const signOut = useCallback(async () => {
     setIsAuthenticating(true)
-    try { await signOutSupabase(); setSignedInEmail(undefined); setRoomToken(''); setNotice('Signed out') }
-    catch (error) { setNotice(`Sign-out failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-    finally { setIsAuthenticating(false) }
+    try {
+      await signOutSupabase()
+      setSignedInEmail(undefined)
+      setRoomToken('')
+      setNotice('로그아웃되었습니다.')
+    } catch (error) {
+      setNotice(`로그아웃 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    } finally {
+      setIsAuthenticating(false)
+    }
   }, [])
 
   const applySceneState = useCallback((scene: SceneFile) => {
-    setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setVisualizationProfile(scene.visualizationProfile); setViews(scene.views); setActiveViewId(scene.activeViewId); setMoleculeLibrary(scene.moleculeLibrary); setCustomFunctions(scene.customFunctions); setWorkspace(scene.workspace); setDrawingTool('select'); setSelectedNodeId(undefined); setSelectedEdgeId(undefined)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .1, duration: 350 }))
+    setNodes(scene.nodes)
+    setEdges(scene.edges)
+    setMode(scene.constraintMode)
+    setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID)
+    setSceneTitle(scene.title)
+    setSceneCreatedAt(scene.createdAt)
+    setMechanism(scene.mechanism)
+    setStylePreset(scene.stylePreset)
+    setReview(scene.review)
+    setLiterature(scene.literature)
+    setCollaboration(scene.collaboration)
+    setVisualizationProfile(scene.visualizationProfile)
+    setViews(scene.views)
+    setActiveViewId(scene.activeViewId)
+    setMoleculeLibrary(scene.moleculeLibrary)
+    setCustomFunctions(scene.customFunctions)
+    setWorkspace(scene.workspace)
+    setDrawingTool('select')
+    setConnectMode(undefined)
+    setSelectedNodeId(undefined)
+    setSelectedEdgeId(undefined)
+    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 320 }))
   }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const serialized = JSON.stringify(currentScene)
-      if (!lastHistoryScene.current) { lastHistoryScene.current = serialized; return }
+      if (!lastHistoryScene.current) {
+        lastHistoryScene.current = serialized
+        return
+      }
       if (lastHistoryScene.current === serialized) return
       const previous = parseSceneFile(JSON.parse(lastHistoryScene.current))
       if (previous) undoStack.current = [...undoStack.current, previous].slice(-50)
-      redoStack.current = []; lastHistoryScene.current = serialized; setHistoryVersion((value) => value + 1)
-    }, 350)
+      redoStack.current = []
+      lastHistoryScene.current = serialized
+      setHistoryVersion((value) => value + 1)
+    }, 320)
     return () => window.clearTimeout(timer)
   }, [currentScene])
 
   const undo = useCallback(() => {
-    const scene = undoStack.current.pop(); if (!scene) return
-    redoStack.current.push(currentScene); lastHistoryScene.current = JSON.stringify(scene); applySceneState(scene); setHistoryVersion((value) => value + 1); setNotice('Undo applied')
+    const scene = undoStack.current.pop()
+    if (!scene) return
+    redoStack.current.push(currentScene)
+    lastHistoryScene.current = JSON.stringify(scene)
+    applySceneState(scene)
+    setHistoryVersion((value) => value + 1)
+    setNotice('실행 취소됨')
   }, [applySceneState, currentScene])
+
   const redo = useCallback(() => {
-    const scene = redoStack.current.pop(); if (!scene) return
-    undoStack.current.push(currentScene); lastHistoryScene.current = JSON.stringify(scene); applySceneState(scene); setHistoryVersion((value) => value + 1); setNotice('Redo applied')
+    const scene = redoStack.current.pop()
+    if (!scene) return
+    undoStack.current.push(currentScene)
+    lastHistoryScene.current = JSON.stringify(scene)
+    applySceneState(scene)
+    setHistoryVersion((value) => value + 1)
+    setNotice('다시 실행됨')
   }, [applySceneState, currentScene])
+
   const onNodesChange = useCallback((changes: NodeChange<BioNodeType>[]) => {
     setNodes((current) => applyNodeChanges(changes, current))
   }, [])
@@ -383,228 +663,365 @@ function AppCanvas() {
     setEdges((current) => applyEdgeChanges(changes, current))
   }, [])
 
-  // Keep selection callbacks stable: port-drag selection changes must not form
-  // a React Flow effect → new array → render → new callback update loop.
-  const handleSelectionChange = useCallback(({nodes:selectedNodes,edges:selectedEdges}:{nodes:BioNodeType[];edges:BioEdge[]}) => {
-    const ids=selectedNodes.map(node=>node.id)
-    setAlignmentNodeIds(current=>current.length===ids.length&&current.every((id,i)=>id===ids[i])?current:ids)
-    setSelectedNodeId(ids[0]);setSelectedEdgeId(selectedEdges[0]?.id)
+  const handleSelectionChange = useCallback(({ nodes: selectedNodes, edges: selectedEdges }: { nodes: BioNodeType[]; edges: BioEdge[] }) => {
+    const ids = selectedNodes.map((node) => node.id)
+    setAlignmentNodeIds((current) => (current.length === ids.length && current.every((id, i) => id === ids[i]) ? current : ids))
+    setSelectedNodeId(ids[0])
+    setSelectedEdgeId(selectedEdges[0]?.id)
   }, [])
 
-  const onConnect = useCallback((connection: Connection) => {
-    const source = nodes.find((node) => node.id === connection.source)
-    const target = nodes.find((node) => node.id === connection.target)
-    const sourcePort = source?.data.ports.find((port) => port.id === connection.sourceHandle)
-    const interaction = inferInteraction(sourcePort, source?.data.kind)
-    const connectionError = validateConnection(source, target, connection.sourceHandle, connection.targetHandle, interaction)
-    if (mode === 'biological' && connectionError) {
-      setNotice(`Biological constraint: ${connectionError}`)
-      return
-    }
-    setEdges((current) => addEdge({
-      ...connection,
-      id: uid('edge'),
-      type: 'interaction',
-      data: { interaction, evidence: { status: 'needs-review', citation: '' } },
-      markerEnd: markerForInteraction(interaction),
-    }, current))
-    setNotice(`${interaction} interaction created`)
-  }, [mode, nodes])
+  const performStudioConnect = useCallback(
+    (sourceId: string, targetId: string, interaction: InteractionType, options: { indirect?: boolean; blockedEdgeId?: string } = {}) => {
+      try {
+        const res = connectStudioNodes(nodes, sourceId, targetId, interaction, options)
+        setNodes(res.nodes)
+        setEdges((curr) => [...curr, res.edge])
+        setConnectMode(undefined)
+        setNotice(`${interaction} 관계선이 추가되었습니다. 선을 클릭해 종류를 바꿀 수 있습니다.`)
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : '연결할 수 없는 대상입니다.')
+      }
+    },
+    [nodes],
+  )
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return
+      const source = nodes.find((node) => node.id === connection.source)
+      const sourcePort = source?.data.ports.find((port) => port.id === connection.sourceHandle)
+      const desired = connectMode?.interaction ?? (source?.data.kind === 'antibody' ? 'BLOCK' : inferInteraction(sourcePort, source?.data.kind))
+      performStudioConnect(connection.source, connection.target, desired, { indirect: connectMode?.indirect })
+    },
+    [connectMode, nodes, performStudioConnect],
+  )
 
   const selectObject = useCallback((id: string, kind: 'node' | 'edge' = 'node', additive = false) => {
     setContextTarget(undefined)
     if (kind === 'edge') {
-      setSelectedEdgeId(id); setSelectedNodeId(undefined); setAlignmentNodeIds([id])
+      setSelectedEdgeId(id)
+      setSelectedNodeId(undefined)
+      setAlignmentNodeIds([id])
       setEdges((items) => items.map((edge) => ({ ...edge, selected: edge.id === id })))
       setNodes((items) => items.map((node) => ({ ...node, selected: false })))
       return
     }
-    setSelectedNodeId(id); setSelectedEdgeId(undefined)
-    setAlignmentNodeIds((current) => additive ? (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]) : [id])
+    setSelectedNodeId(id)
+    setSelectedEdgeId(undefined)
+    setAlignmentNodeIds((current) => (additive ? (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]) : [id]))
     setNodes((items) => items.map((node) => ({ ...node, selected: additive ? (node.id === id ? !node.selected : node.selected) : node.id === id })))
     setEdges((items) => items.map((edge) => ({ ...edge, selected: false })))
   }, [])
 
-  const placeNodeAt = useCallback((kind: 'receptor' | 'antibody' | 'ligand', position: { x: number; y: number }) => {
-    const id = uid(kind)
-    const node: BioNodeType = { id, type: 'bio', position, selected: true, data: createBioData(kind, defaultLabels[kind], { panelId: 'single', visibility: 'visible', positionMode: 'manual' }) }
-    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice(`${defaultLabels[kind]} created. Drag to move; double-click to edit.`)
-    if (!continuousTool) setDrawingTool('select')
-  }, [continuousTool, selectObject])
-
-  const placeCellAt = useCallback((position: { x: number; y: number }) => {
-    const id = uid('cell')
-    const node: BioNodeType = { id, type: 'cell', position, selected: true, style: { width: 540, height: 380 }, data: createBioData('cell', 'Cell', { panelId: 'single', visibility: 'visible', positionMode: 'manual', sceneType: 'full_signaling' }) }
-    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice('Cell created. Resize it with the selection handles.')
-    if (!continuousTool) setDrawingTool('select')
-  }, [continuousTool, selectObject])
-
-  const placeCalloutAt = useCallback((position: { x: number; y: number }) => {
-    const id = uid('callout')
-    const node: BioNodeType = { id, type: 'annotation', position, selected: true, style: { width: 230, height: 100 }, data: createBioData('annotation', 'Key finding', { panelId: 'single', visibility: 'visible', positionMode: 'manual' }) }
-    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); selectObject(id); setNotice('Text callout created. Type its content in the Inspector.')
-    if (!continuousTool) setDrawingTool('select')
-  }, [continuousTool, selectObject])
-
-  const addBiologicalNode = useCallback((kind: Exclude<BioKind, 'cell' | 'annotation' | 'membrane'>) => {
-    const defaults = semanticDefaults[kind]
-    const label = defaultLabels[kind]
-    const targetCell = selectedNode?.data.kind === 'cell'
-      ? selectedNode
-      : nodes.find((item) => item.id === selectedNode?.parentId)
-        ?? nodes.find((item) => item.data.panelId === 'treated' && item.data.kind === 'cell')
-        ?? nodes.find((item) => item.data.kind === 'cell')
-    const node: BioNodeType = {
-      id: uid(kind),
-      type: 'bio',
-      ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}),
-      position: findAvailablePosition(nodes, defaults.compartment, targetCell?.id), selected: true,
-      data: createBioData(kind, label, { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }),
-    }
-    setNodes((current) => [...current.map((item) => ({ ...item, selected: false })), node])
-    setSelectedNodeId(node.id)
-    setSelectedEdgeId(undefined)
-    setNotice(`${label} added to ${targetCell?.data.panelId ?? 'free canvas'} · ${defaults.compartment}`)
-  }, [nodes, selectedNode])
-
-  const addCallout = useCallback(() => {
-    const targetCell = selectedNode?.data.kind === 'cell' ? selectedNode : nodes.find((item) => item.id === selectedNode?.parentId) ?? nodes.find((item) => item.data.kind === 'cell')
-    const node: BioNodeType = { id: uid('callout'), type: 'annotation', selected: true, ...(targetCell ? { parentId: targetCell.id, extent: 'parent' as const } : {}), position: targetCell ? { x: 56, y: 420 } : { x: 320, y: 180 }, data: createBioData('annotation', 'Key finding', { panelId: targetCell?.data.panelId ?? 'single', visibility: 'visible', positionMode: 'auto' }) }
-    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); setSelectedNodeId(node.id); setAlignmentNodeIds([node.id]); setNotice('Scientific callout added')
-  }, [nodes, selectedNode])
-
-  const updateSelectedNode = useCallback((patch: BioNodePatch) => {
-    if (!selectedNode) return
-    if (patch.compartment && mode === 'biological' && !selectedNode.data.allowedCompartments.includes(patch.compartment)) {
-      setNotice(`Biological constraint: ${selectedNode.data.kind} cannot enter ${patch.compartment}`)
-      return
-    }
-    const normalized = { ...patch }
-    if (patch.state && mode === 'biological') {
-      const nextState = selectedNode.data.states.find((state) => state.id === patch.state)
-      if (nextState && !nextState.allowedCompartments.includes(selectedNode.data.compartment)) {
-        normalized.compartment = nextState.allowedCompartments[0]
-        setNotice(`${nextState.label} state moved ${selectedNode.data.label} to ${normalized.compartment}`)
+  const placeNodeAt = useCallback(
+    (kind: 'receptor' | 'antibody' | 'ligand', position: { x: number; y: number }) => {
+      const id = uid(kind)
+      const node: BioNodeType = {
+        id,
+        type: 'bio',
+        position,
+        selected: true,
+        data: createBioData(kind, defaultLabels[kind], { panelId: 'single', visibility: 'visible', positionMode: 'manual', showName: true }),
       }
-    }
-    setNodes((current) => {
-      let changedMembrane: BioNodeType | undefined
-      const nextItems = current.map((node) => {
-      if (node.id !== selectedNodeId) return node
-      const next = { ...node, hidden: normalized.visibility ? normalized.visibility !== 'visible' : node.hidden, data: { ...node.data, ...normalized } }
-      const result = (normalized.compartment || normalized.state) && mode === 'biological' ? constrainNode(next, mode, current) : next
-      if (result.data.kind === 'membrane') changedMembrane = result
-      return result
-      })
-      return changedMembrane ? repositionMembraneAnchors(nextItems, changedMembrane) : nextItems
-    })
-  }, [mode, selectedNode, selectedNodeId])
+      setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node])
+      selectObject(id)
+      setNotice(`${defaultLabels[kind]} 개체가 배치되었습니다. 더블클릭해 이름을 수정하세요.`)
+      if (!continuousTool) setDrawingTool('select')
+    },
+    [continuousTool, selectObject],
+  )
 
-  const attachAsset = useCallback((asset: AssetReference) => {
-    if (!selectedNodeId) return
-    setNodes((current) => current.map((node) => node.id === selectedNodeId ? { ...node, data: { ...node.data, asset } } : node))
-    setShowAssetBrowser(false)
-    setNotice(`${asset.name} bound to semantic object`)
-  }, [selectedNodeId])
+  const placeCellAt = useCallback(
+    (position: { x: number; y: number }) => {
+      const id = uid('cell')
+      const width = 620
+      const node: BioNodeType = {
+        id,
+        type: 'cell',
+        position,
+        selected: true,
+        deletable: false,
+        style: { width, height: 500 },
+        data: createBioData('cell', 'T Cell', {
+          simpleCell: true,
+          cellShape: 'membrane_zoom',
+          cellTheme: 'emerald',
+          showName: true,
+          panelId: 'single',
+          visibility: 'visible',
+          positionMode: 'manual',
+          sceneType: 'full_signaling',
+          membrane: {
+            id,
+            name: 'Plasma membrane',
+            boundaryType: 'plasma_membrane',
+            path: [{ x: 26, y: 217 }, { x: width - 26, y: 217 }],
+            sideA: 'extracellular',
+            sideB: 'cytoplasm',
+            closed: false,
+            style: 'standard',
+            thickness: 18,
+            smoothing: 0,
+            anchors: [],
+          },
+        }),
+      }
+      setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node])
+      selectObject(id)
+      setNotice('새 세포가 배치되었습니다. 모서리 핸들로 크기를 조절할 수 있습니다.')
+      if (!continuousTool) setDrawingTool('select')
+    },
+    [continuousTool, selectObject],
+  )
+
+  const placeCalloutAt = useCallback(
+    (position: { x: number; y: number }) => {
+      const id = uid('callout')
+      const node: BioNodeType = {
+        id,
+        type: 'annotation',
+        position,
+        selected: true,
+        style: { width: 240, height: 96 },
+        data: createBioData('annotation', '핵심 기전 요약', {
+          panelId: 'single',
+          visibility: 'visible',
+          positionMode: 'manual',
+          annotation: { title: '핵심 기전 요약', body: '여기에 설명을 입력하세요.', tone: 'finding' },
+        }),
+      }
+      setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node])
+      selectObject(id)
+      setNotice('설명 텍스트 상자가 추가되었습니다.')
+      if (!continuousTool) setDrawingTool('select')
+    },
+    [continuousTool, selectObject],
+  )
+
+  const patchNodeById = useCallback(
+    (targetId: string, patch: BioNodePatch) => {
+      setNodes((current) => {
+        let changedMembrane: BioNodeType | undefined
+        const nextItems = current.map((node) => {
+          if (node.id !== targetId) return node
+          const next = {
+            ...node,
+            hidden: patch.visibility ? patch.visibility !== 'visible' : node.hidden,
+            data: { ...node.data, ...patch },
+          }
+          const result = (patch.compartment || patch.state) && mode === 'biological' ? constrainNode(next, mode, current) : next
+          if (result.data.kind === 'membrane') changedMembrane = result
+          return result
+        })
+        return changedMembrane ? repositionMembraneAnchors(nextItems, changedMembrane) : nextItems
+      })
+    },
+    [mode],
+  )
+
+  const updateSelectedNode = useCallback(
+    (patch: BioNodePatch) => {
+      if (!selectedNodeId) return
+      patchNodeById(selectedNodeId, patch)
+    },
+    [patchNodeById, selectedNodeId],
+  )
+
+  const attachAsset = useCallback(
+    (asset: AssetReference) => {
+      if (!selectedNodeId) return
+      setNodes((current) => current.map((node) => (node.id === selectedNodeId ? { ...node, data: { ...node.data, asset } } : node)))
+      setShowAssetBrowser(false)
+      setNotice(`${asset.name} SVG 에셋이 적용되었습니다.`)
+    },
+    [selectedNodeId],
+  )
 
   const detachAsset = useCallback(() => {
     if (!selectedNodeId) return
-    setNodes((current) => current.map((node) => node.id === selectedNodeId ? { ...node, data: { ...node.data, asset: undefined } } : node))
-    setNotice('Visual asset detached; semantic object preserved')
+    setNodes((current) => current.map((node) => (node.id === selectedNodeId ? { ...node, data: { ...node.data, asset: undefined } } : node)))
+    setNotice('외부 SVG 에셋 연결이 해제되었습니다.')
   }, [selectedNodeId])
 
-  const openMoleculeBuilder = useCallback((node?: BioNodeType) => {
-    const target = node ?? selectedNode
-    if (target && !['cell','annotation','signal','transcription'].includes(target.data.kind)) {
-      const existing = moleculeLibrary.find((item) => item.id === target.data.moleculeId || item.name.toLowerCase() === target.data.label.toLowerCase())
-      if (existing) setSetupMoleculeId(existing.id)
-      else {
-        const created = { ...createMolecule(target.data.label), geneName: target.data.target }
-        setMoleculeLibrary((items) => [...items, created]); setSetupMoleculeId(created.id)
-      }
-    } else setSetupMoleculeId(undefined)
-    setShowMoleculeSetup(true)
-  }, [moleculeLibrary, selectedNode])
+  const openMoleculeBuilder = useCallback(
+    (node?: BioNodeType) => {
+      const target = node ?? selectedNode
+      if (target && !['cell', 'annotation', 'signal', 'transcription'].includes(target.data.kind)) {
+        const existing = moleculeLibrary.find(
+          (item) => item.id === target.data.moleculeId || item.name.toLowerCase() === target.data.label.toLowerCase(),
+        )
+        if (existing) setSetupMoleculeId(existing.id)
+        else {
+          const created = { ...createMolecule(target.data.label), geneName: target.data.target }
+          setMoleculeLibrary((items) => [...items, created])
+          setSetupMoleculeId(created.id)
+        }
+      } else setSetupMoleculeId(undefined)
+      setShowMoleculeSetup(true)
+    },
+    [moleculeLibrary, selectedNode],
+  )
 
-  const applyMoleculeToInstances = useCallback((molecule: MoleculeDefinition, policy: Exclude<MoleculeApplyPolicy,'variant'>) => {
-    const functionalPorts = portsFromDomains(molecule)
-    setNodes((items) => items.map((node) => {
-      const shouldApply = policy === 'all' ? node.data.moleculeId === molecule.id : node.id === selectedNodeId
-      if (shouldApply) return applyMoleculeToNode(node, molecule)
-      const matching = functionalPorts.filter((port) => port.targetHint && [node.data.label,node.data.target].filter(Boolean).some((value) => String(value).toLowerCase().replace(/[^a-z0-9]/g,'') === port.targetHint!.toLowerCase().replace(/[^a-z0-9]/g,'')))
-      if (!matching.length) return node
-      const counterpartPorts = matching.map((port) => ({ ...port, id: `port:${node.id}:${port.id.split(':').at(-2)}:target`, role: 'target' as const, side: port.side === 'left' ? 'right' as const : 'left' as const, domainId: node.data.structuralModel?.domains.find((domain) => domain.kind === 'extracellular')?.id ?? node.data.domains[0]?.id, targetHint: molecule.name }))
-      const existing = new Set(node.data.ports.map((port) => port.id))
-      return { ...node, data: { ...node.data, ports: [...node.data.ports, ...counterpartPorts.filter((port) => !existing.has(port.id))] } }
-    }))
-  }, [selectedNodeId])
+  const applyMoleculeToInstances = useCallback(
+    (molecule: MoleculeDefinition, policy: Exclude<MoleculeApplyPolicy, 'variant'>) => {
+      const functionalPorts = portsFromDomains(molecule)
+      setNodes((items) =>
+        items.map((node) => {
+          const shouldApply = policy === 'all' ? node.data.moleculeId === molecule.id : node.id === selectedNodeId
+          if (shouldApply) return applyMoleculeToNode(node, molecule)
+          const matching = functionalPorts.filter(
+            (port) =>
+              port.targetHint &&
+              [node.data.label, node.data.target]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().replace(/[^a-z0-9]/g, '') === port.targetHint!.toLowerCase().replace(/[^a-z0-9]/g, '')),
+          )
+          if (!matching.length) return node
+          const counterpartPorts = matching.map((port) => ({
+            ...port,
+            id: `port:${node.id}:${port.id.split(':').at(-2)}:target`,
+            role: 'target' as const,
+            side: port.side === 'left' ? ('right' as const) : ('left' as const),
+            domainId: node.data.structuralModel?.domains.find((domain) => domain.kind === 'extracellular')?.id ?? node.data.domains[0]?.id,
+            targetHint: molecule.name,
+          }))
+          const existing = new Set(node.data.ports.map((port) => port.id))
+          return { ...node, data: { ...node.data, ports: [...node.data.ports, ...counterpartPorts.filter((port) => !existing.has(port.id))] } }
+        }),
+      )
+    },
+    [selectedNodeId],
+  )
 
-  const saveMoleculeDefinition = useCallback((molecule: MoleculeDefinition, policy: MoleculeApplyPolicy, variantName?: string) => {
-    if (policy === 'variant') {
-      const id = `molecule:${molecule.name.replace(/[^A-Za-z0-9_-]+/g,'_')}:${crypto.randomUUID().slice(0,8)}`
-      const variantBase: MoleculeDefinition = {
-        ...structuredClone(molecule), id, name: variantName ?? `${molecule.name} variant`, parentMoleculeId: molecule.id,
-        architecture: molecule.architecture ? syncArchitecture(id, { ...molecule.architecture, components: [] }) : undefined,
-        savedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), saveStatus: 'saved',
+  const saveMoleculeDefinition = useCallback(
+    (molecule: MoleculeDefinition, policy: MoleculeApplyPolicy, variantName?: string) => {
+      if (policy === 'variant') {
+        const id = `molecule:${molecule.name.replace(/[^A-Za-z0-9_-]+/g, '_')}:${crypto.randomUUID().slice(0, 8)}`
+        const variantBase: MoleculeDefinition = {
+          ...structuredClone(molecule),
+          id,
+          name: variantName ?? `${molecule.name} variant`,
+          parentMoleculeId: molecule.id,
+          architecture: molecule.architecture ? syncArchitecture(id, { ...molecule.architecture, components: [] }) : undefined,
+          savedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          saveStatus: 'saved',
+        }
+        const variant = { ...variantBase, structuralModel: structuralModelForMolecule(variantBase) }
+        setMoleculeLibrary((items) => [...items, variant])
+        if (selectedNodeId) applyMoleculeToInstances(variant, 'selected')
+        setSetupMoleculeId(variant.id)
+        setNotice(`${variant.name}을 새 변형(variant)으로 저장했습니다.`)
+        return
       }
-      const variant = { ...variantBase, structuralModel: structuralModelForMolecule(variantBase) }
-      setMoleculeLibrary((items) => [...items, variant])
-      if (selectedNodeId) applyMoleculeToInstances(variant, 'selected')
-      setSetupMoleculeId(variant.id)
-      setNotice(`${variant.name}을 새 variant로 저장했습니다.`)
-      return
-    }
-    setMoleculeLibrary((items) => items.some((item) => item.id === molecule.id) ? items.map((item) => item.id === molecule.id ? molecule : item) : [...items,molecule])
-    if (policy === 'all' || selectedNodeId) applyMoleculeToInstances(molecule, policy)
-    setNotice(`${molecule.name} 저장 완료 · ${policy === 'all' ? '모든 instance' : '선택 instance'}에 반영했습니다.`)
-  }, [applyMoleculeToInstances, selectedNodeId])
+      setMoleculeLibrary((items) =>
+        items.some((item) => item.id === molecule.id) ? items.map((item) => (item.id === molecule.id ? molecule : item)) : [...items, molecule],
+      )
+      if (policy === 'all' || selectedNodeId) applyMoleculeToInstances(molecule, policy)
+      setNotice(`${molecule.name} 구조 설정이 저장되었습니다.`)
+    },
+    [applyMoleculeToInstances, selectedNodeId],
+  )
 
   const deleteMoleculeDefinition = useCallback((molecule: MoleculeDefinition, removeInstances: boolean) => {
     setMoleculeLibrary((items) => items.filter((item) => item.id !== molecule.id))
     if (removeInstances) setNodes((items) => items.filter((node) => node.data.moleculeId !== molecule.id))
     setSetupMoleculeId(undefined)
-    setNotice(`${molecule.name}을 library${removeInstances ? '와 scene' : ''}에서 제거했습니다.`)
+    setNotice(`${molecule.name} 정의가 제거되었습니다.`)
   }, [])
 
-  const moleculeInstanceCounts = useMemo(() => nodes.reduce<Record<string,number>>((counts,node) => {
-    if (node.data.moleculeId) counts[node.data.moleculeId] = (counts[node.data.moleculeId] ?? 0) + 1
-    return counts
-  },{}), [nodes])
+  const moleculeInstanceCounts = useMemo(
+    () =>
+      nodes.reduce<Record<string, number>>((counts, node) => {
+        if (node.data.moleculeId) counts[node.data.moleculeId] = (counts[node.data.moleculeId] ?? 0) + 1
+        return counts
+      }, {}),
+    [nodes],
+  )
 
-  const addMoleculeToScene = useCallback((molecule: MoleculeDefinition) => {
-    const placement = scenePlacementForMolecule(molecule)
-    const kind = placement.kind
-    const id = uid(kind)
-    const base: BioNodeType = { id, type:'bio', selected:true, position:findAvailablePosition(nodes,placement.compartment), data:createBioData(kind,molecule.name,{panelId:'single',visibility:'visible',positionMode:'auto'}) }
-    let node = applyMoleculeToNode(base,molecule)
-    const membrane = placement.anchorToMembrane ? nodes.find((item)=>item.data.kind === 'membrane' && item.data.membrane) : undefined
-    if (membrane) {
-      const target = anchoredPosition(membrane,.5)
-      if (target) node = { ...node, position:{x:target.x-77.5,y:target.y-32}, data:{...node.data,compartment:'membrane',membraneAnchor:{membraneId:membrane.id,pathPosition:.5,orientation:'normal',angle:target.angle}} }
-    }
-    setNodes((items)=>[...items.map((item)=>item.id === membrane?.id && item.data.membrane ? {...item,selected:false,data:{...item.data,membrane:{...item.data.membrane,anchors:[...item.data.membrane.anchors.filter((record)=>record.objectId!==id),{objectId:id,pathPosition:.5,orientation:'normal' as const}]}}}:{...item,selected:false}),node])
-    setSelectedNodeId(id); setAlignmentNodeIds([id]); setSelectedEdgeId(undefined); setShowMoleculeSetup(false); setNotice(`${molecule.name} structural instance added${membrane?' and anchored to membrane':''}`)
-  },[nodes])
+  const addMoleculeToScene = useCallback(
+    (molecule: MoleculeDefinition) => {
+      const placement = scenePlacementForMolecule(molecule)
+      const kind = placement.kind
+      const id = uid(kind)
+      const base: BioNodeType = {
+        id,
+        type: 'bio',
+        selected: true,
+        position: findAvailablePosition(nodes, placement.compartment),
+        data: createBioData(kind, molecule.name, { panelId: 'single', visibility: 'visible', positionMode: 'auto', showName: true }),
+      }
+      let node = applyMoleculeToNode(base, molecule)
+      const membrane = placement.anchorToMembrane ? nodes.find((item) => item.data.kind === 'membrane' && item.data.membrane) : undefined
+      if (membrane) {
+        const target = anchoredPosition(membrane, 0.5)
+        if (target) {
+          node = {
+            ...node,
+            position: { x: target.x - 48, y: target.y - 38 },
+            data: {
+              ...node.data,
+              compartment: 'membrane',
+              membraneAnchor: { membraneId: membrane.id, pathPosition: 0.5, orientation: 'normal', angle: target.angle },
+            },
+          }
+        }
+      }
+      setNodes((items) => [
+        ...items.map((item) =>
+          item.id === membrane?.id && item.data.membrane
+            ? {
+                ...item,
+                selected: false,
+                data: {
+                  ...item.data,
+                  membrane: {
+                    ...item.data.membrane,
+                    anchors: [...item.data.membrane.anchors.filter((record) => record.objectId !== id), { objectId: id, pathPosition: 0.5, orientation: 'normal' as const }],
+                  },
+                },
+              }
+            : { ...item, selected: false },
+        ),
+        node,
+      ])
+      setSelectedNodeId(id)
+      setAlignmentNodeIds([id])
+      setSelectedEdgeId(undefined)
+      setShowMoleculeSetup(false)
+      setNotice(`${molecule.name} 분자가 캔버스에 추가되었습니다.`)
+    },
+    [nodes],
+  )
 
-  const updateSelectedEdge = useCallback((interaction: InteractionType) => {
-    const edge = edges.find((item) => item.id === selectedEdgeId)
-    const source = nodes.find((node) => node.id === edge?.source)
-    const target = nodes.find((node) => node.id === edge?.target)
-    const connectionError = validateConnection(source, target, edge?.sourceHandle, edge?.targetHandle, interaction)
-    if (mode === 'biological' && connectionError) {
-      setNotice(`Biological constraint: ${connectionError}`)
-      return
-    }
-    setEdges((current) => current.map((edge) => edge.id === selectedEdgeId ? {
-      ...edge,
-      data: { interaction, note: edge.data?.note, evidence: edge.data?.evidence },
-      markerEnd: markerForInteraction(interaction),
-    } : edge))
-  }, [edges, mode, nodes, selectedEdgeId])
+  const updateEdgeById = useCallback((edgeId: string, interaction: InteractionType) => {
+    setEdges((current) =>
+      current.map((edge) =>
+        edge.id === edgeId
+          ? {
+              ...edge,
+              data: { ...edge.data, interaction },
+              markerEnd: markerForInteraction(interaction),
+            }
+          : edge,
+      ),
+    )
+  }, [])
 
-  const updateSelectedEdgeData = useCallback((patch: Partial<InteractionData>) => {
-    setEdges((items) => items.map((edge) => edge.id === selectedEdgeId ? { ...edge, data: { ...(edge.data ?? { interaction: 'BIND' }), ...patch } } : edge))
-  }, [selectedEdgeId])
+  const updateSelectedEdge = useCallback(
+    (interaction: InteractionType) => {
+      if (!selectedEdgeId) return
+      updateEdgeById(selectedEdgeId, interaction)
+    },
+    [selectedEdgeId, updateEdgeById],
+  )
+
+  const updateSelectedEdgeData = useCallback(
+    (patch: Partial<InteractionData>) => {
+      setEdges((items) => items.map((edge) => (edge.id === selectedEdgeId ? { ...edge, data: { ...(edge.data ?? { interaction: 'BIND' }), ...patch } } : edge)))
+    },
+    [selectedEdgeId],
+  )
 
   const deleteSelected = useCallback(() => {
     const nodeIds = new Set(alignmentNodeIds.filter((id) => nodes.some((node) => node.id === id)))
@@ -612,26 +1029,38 @@ function AppCanvas() {
     if (nodeIds.size) {
       const selectedItems = nodes.filter((node) => nodeIds.has(node.id))
       const selectedMembranes = selectedItems.filter((node) => node.data.kind === 'membrane')
-      let deleteAnchored = false
       for (const membraneNode of selectedMembranes) {
         const anchored = nodes.filter((node) => node.data.membraneAnchor?.membraneId === membraneNode.id)
         if (anchored.length) {
-          const choice = window.prompt(`This membrane has ${anchored.length} anchored object(s).\nDETACH = 막만 삭제하고 개체 보존\nALL = 막과 고정 개체 모두 삭제\nCANCEL = 취소`, 'DETACH')?.trim().toUpperCase()
+          const choice = window
+            .prompt(`이 막에 고정된 개체가 ${anchored.length}개 있습니다.\nDETACH = 막만 삭제하고 개체 보존\nALL = 모두 삭제\nCANCEL = 취소`, 'DETACH')
+            ?.trim()
+            .toUpperCase()
           if (!choice || choice === 'CANCEL') return
-          if (choice !== 'DETACH' && choice !== 'ALL') { setNotice('Delete cancelled: enter DETACH, ALL, or CANCEL.'); return }
-          deleteAnchored = choice === 'ALL'
-          if (deleteAnchored) anchored.forEach((node) => nodeIds.add(node.id))
+          if (choice === 'ALL') anchored.forEach((node) => nodeIds.add(node.id))
         }
       }
-      for (const cell of selectedItems.filter((node) => node.data.kind === 'cell')) nodes.filter((node) => node.parentId === cell.id).forEach((node) => nodeIds.add(node.id))
-      const remaining=layoutSimpleCells(nodes.filter((node) => !nodeIds.has(node.id)).map((node) => selectedMembranes.some((membrane) => node.data.membraneAnchor?.membraneId === membrane.id) ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
+      for (const cell of selectedItems.filter((node) => node.data.kind === 'cell')) {
+        nodes.filter((node) => node.parentId === cell.id).forEach((node) => nodeIds.add(node.id))
+      }
+      const remaining = nodes
+        .filter((node) => !nodeIds.has(node.id))
+        .map((node) =>
+          selectedMembranes.some((membrane) => node.data.membraneAnchor?.membraneId === membrane.id)
+            ? { ...node, data: { ...node.data, membraneAnchor: undefined } }
+            : node,
+        )
       setNodes(remaining)
-      setEdges((current) => pruneSimpleEdges(remaining,current))
-      setNotice(`${nodeIds.size} object(s) deleted`)
+      setEdges((current) => pruneSimpleEdges(remaining, current))
+      setNotice(`${nodeIds.size}개 개체가 삭제되었습니다.`)
     } else if (selectedEdgeId) {
-      setEdges((current) => pruneSimpleEdges(nodes,current.filter((edge) => edge.id !== selectedEdgeId))); setNotice('Interaction deleted')
+      setEdges((current) => pruneSimpleEdges(nodes, current.filter((edge) => edge.id !== selectedEdgeId)))
+      setNotice('연결선이 삭제되었습니다.')
     }
-    setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]); setContextTarget(undefined)
+    setSelectedNodeId(undefined)
+    setSelectedEdgeId(undefined)
+    setAlignmentNodeIds([])
+    setContextTarget(undefined)
   }, [alignmentNodeIds, nodes, selectedEdgeId, selectedNodeId])
 
   const copySelected = useCallback(() => {
@@ -641,7 +1070,7 @@ function AppCanvas() {
     const copiedNodes = nodes.filter((node) => ids.has(node.id))
     const copiedEdges = edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target))
     editorClipboard.current = { nodes: structuredClone(copiedNodes), edges: structuredClone(copiedEdges) }
-    setNotice(`${copiedNodes.length} object(s) copied`)
+    setNotice(`${copiedNodes.length}개 개체가 복사되었습니다.`)
   }, [alignmentNodeIds, edges, nodes, selectedNodeId])
 
   const pasteObjects = useCallback(() => {
@@ -651,224 +1080,440 @@ function AppCanvas() {
     const nextNodes = copied.nodes.map((node) => {
       const id = map.get(node.id)!
       const membrane = node.data.membrane ? { ...structuredClone(node.data.membrane), id, anchors: [] } : undefined
-      const anchor = node.data.membraneAnchor && map.has(node.data.membraneAnchor.membraneId) ? { ...node.data.membraneAnchor, membraneId: map.get(node.data.membraneAnchor.membraneId)! } : undefined
-      return { ...structuredClone(node), id, parentId: node.parentId ? map.get(node.parentId) : undefined, position: { x: node.position.x + 32, y: node.position.y + 32 }, selected: true, data: { ...structuredClone(node.data), membrane, membraneAnchor: anchor } }
+      const anchor =
+        node.data.membraneAnchor && map.has(node.data.membraneAnchor.membraneId)
+          ? { ...node.data.membraneAnchor, membraneId: map.get(node.data.membraneAnchor.membraneId)! }
+          : undefined
+      return {
+        ...structuredClone(node),
+        id,
+        parentId: node.parentId ? map.get(node.parentId) : undefined,
+        position: { x: node.position.x + 36, y: node.position.y + 36 },
+        selected: true,
+        data: { ...structuredClone(node.data), membrane, membraneAnchor: anchor },
+      }
     })
-    const nextEdges = copied.edges.map((edge) => ({ ...structuredClone(edge), id: uid('edge'), source: map.get(edge.source)!, target: map.get(edge.target)!, selected: false }))
-    setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), ...nextNodes]); setEdges((items) => [...items, ...nextEdges])
-    const ids = nextNodes.map((node) => node.id); setAlignmentNodeIds(ids); setSelectedNodeId(ids[0]); setSelectedEdgeId(undefined); setNotice(`${ids.length} object(s) pasted`)
+    const nextEdges = copied.edges.map((edge) => ({
+      ...structuredClone(edge),
+      id: uid('edge'),
+      source: map.get(edge.source)!,
+      target: map.get(edge.target)!,
+      selected: false,
+    }))
+    setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), ...nextNodes])
+    setEdges((items) => [...items, ...nextEdges])
+    const ids = nextNodes.map((node) => node.id)
+    setAlignmentNodeIds(ids)
+    setSelectedNodeId(ids[0])
+    setSelectedEdgeId(undefined)
+    setNotice(`${ids.length}개 개체가 복제되었습니다.`)
   }, [])
 
-  const duplicateSelected = useCallback(() => { copySelected(); queueMicrotask(pasteObjects) }, [copySelected, pasteObjects])
+  const duplicateSelected = useCallback(() => {
+    copySelected()
+    queueMicrotask(pasteObjects)
+  }, [copySelected, pasteObjects])
 
-  const toggleObjectVisibility = useCallback((id: string) => setNodes((items) => items.map((node) => node.id === id ? { ...node, hidden: !node.hidden, data: { ...node.data, visibility: node.hidden ? 'visible' : 'manually_hidden' } } : node)), [])
-  const toggleObjectLock = useCallback((id: string) => setNodes((items) => items.map((node) => node.id === id ? { ...node, draggable: !!node.data.locked, data: { ...node.data, locked: !node.data.locked, positionMode: node.data.locked ? 'manual' : 'pinned' } } : node)), [])
-
-  const membraneAction = useCallback((id: string, actionName: string, detail: Record<string, unknown> = {}) => {
-    const membraneNode = nodes.find((node) => node.id === id && node.data.membrane)
-    if (!membraneNode?.data.membrane) return
-    if (actionName === 'edit') { selectObject(id); setNotice('Path edit: drag points, Alt+click a point to delete, double-click the line to add a point.'); return }
-    if (actionName === 'flip') { setNodes((items) => items.map((node) => node.id === id ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, sideA: node.data.membrane!.sideB, sideB: node.data.membrane!.sideA } } } : node)); setNotice('Membrane inside/outside flipped'); return }
-    if (actionName === 'move-point' || actionName === 'add-point' || actionName === 'remove-point' || actionName === 'straighten') {
-      let path = [...membraneNode.data.membrane.path]
-      if (actionName === 'move-point') path[Number(detail.index)] = detail.point as MembranePoint
-      if (actionName === 'remove-point' && path.length > 2) path.splice(Number(detail.index), 1)
-      if (actionName === 'add-point') {
-        const point = detail.point as MembranePoint; let index = 1; let distance = Infinity
-        for (let i = 0; i < path.length - 1; i++) { const mid = { x: (path[i].x + path[i + 1].x) / 2, y: (path[i].y + path[i + 1].y) / 2 }; const next = Math.hypot(point.x - mid.x, point.y - mid.y); if (next < distance) { distance = next; index = i + 1 } }
-        path.splice(index, 0, point)
+  const membraneAction = useCallback(
+    (id: string, actionName: string, detail: Record<string, unknown> = {}) => {
+      const membraneNode = nodes.find((node) => node.id === id && node.data.membrane)
+      if (!membraneNode?.data.membrane) return
+      if (actionName === 'edit') {
+        selectObject(id)
+        setNotice('막 경로 편집 모드: 점을 드래그하거나 더블클릭해 제어점을 추가하세요.')
+        return
       }
-      if (actionName === 'straighten') path = [path[0], path.at(-1)!]
-      setNodes((items) => {
-        const changed = items.map((node) => node.id === id ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, path } } } : node)
-        const nextMembrane = changed.find((node) => node.id === id)!
-        return repositionMembraneAnchors(changed, nextMembrane)
-      })
-    }
-  }, [nodes, selectObject])
-
-  const deleteObjectById = useCallback((id: string) => {
-    const target = nodes.find((node) => node.id === id)
-    if (!target) return
-    const ids = new Set([id])
-    if (target.data.kind === 'cell') nodes.filter((node) => node.parentId === id).forEach((node) => ids.add(node.id))
-    if (target.data.kind === 'membrane') {
-      const anchored = nodes.filter((node) => node.data.membraneAnchor?.membraneId === id)
-      if (anchored.length) {
-        const choice = window.prompt(`This membrane has ${anchored.length} anchored object(s).\nDETACH = 막만 삭제하고 개체 보존\nALL = 모두 삭제\nCANCEL = 취소`, 'DETACH')?.trim().toUpperCase()
-        if (!choice || choice === 'CANCEL') return
-        if (choice === 'ALL') anchored.forEach((node) => ids.add(node.id))
-        else if (choice !== 'DETACH') return
+      if (actionName === 'flip') {
+        setNodes((items) =>
+          items.map((node) =>
+            node.id === id
+              ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, sideA: node.data.membrane!.sideB, sideB: node.data.membrane!.sideA } } }
+              : node,
+          ),
+        )
+        return
       }
-    }
-    setNodes((items) => items.filter((node) => !ids.has(node.id)).map((node) => node.data.membraneAnchor?.membraneId === id ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
-    setEdges((items) => items.filter((edge) => !ids.has(edge.source) && !ids.has(edge.target)))
-    setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]); setNotice(`${target.data.label} deleted`)
-  }, [nodes])
+      if (['move-point', 'add-point', 'remove-point', 'straighten'].includes(actionName)) {
+        let path = [...membraneNode.data.membrane.path]
+        if (actionName === 'move-point') path[Number(detail.index)] = detail.point as MembranePoint
+        if (actionName === 'remove-point' && path.length > 2) path.splice(Number(detail.index), 1)
+        if (actionName === 'add-point') {
+          const point = detail.point as MembranePoint
+          let index = 1
+          let distance = Infinity
+          for (let i = 0; i < path.length - 1; i++) {
+            const mid = { x: (path[i].x + path[i + 1].x) / 2, y: (path[i].y + path[i + 1].y) / 2 }
+            const next = Math.hypot(point.x - mid.x, point.y - mid.y)
+            if (next < distance) {
+              distance = next
+              index = i + 1
+            }
+          }
+          path.splice(index, 0, point)
+        }
+        if (actionName === 'straighten') path = [path[0], path.at(-1)!]
+        setNodes((items) => {
+          const changed = items.map((node) => (node.id === id ? { ...node, data: { ...node.data, membrane: { ...node.data.membrane!, path } } } : node))
+          const nextMembrane = changed.find((node) => node.id === id)!
+          return repositionMembraneAnchors(changed, nextMembrane)
+        })
+      }
+    },
+    [nodes, selectObject],
+  )
 
-  const duplicateObjectById = useCallback((id: string) => {
-    const source = nodes.find((node) => node.id === id)
-    if (!source) return
-    const nextId = uid(source.data.kind)
-    const membrane = source.data.membrane ? { ...structuredClone(source.data.membrane), id: nextId, anchors: [] } : undefined
-    const clone: BioNodeType = { ...structuredClone(source), id: nextId, parentId: source.parentId, position: { x: source.position.x + 32, y: source.position.y + 32 }, selected: true, data: { ...structuredClone(source.data), membrane, membraneAnchor: undefined } }
-    setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), clone]); setSelectedNodeId(nextId); setSelectedEdgeId(undefined); setAlignmentNodeIds([nextId]); setNotice(`${source.data.label} duplicated`)
-  }, [nodes])
+  const deleteObjectById = useCallback(
+    (id: string) => {
+      const target = nodes.find((node) => node.id === id)
+      if (!target) return
+      const ids = new Set([id])
+      if (target.data.kind === 'cell') nodes.filter((node) => node.parentId === id).forEach((node) => ids.add(node.id))
+      const remaining = nodes
+        .filter((node) => !ids.has(node.id))
+        .map((node) => (node.data.membraneAnchor?.membraneId === id ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
+      setNodes(remaining)
+      setEdges((items) => pruneSimpleEdges(remaining, items))
+      setSelectedNodeId(undefined)
+      setSelectedEdgeId(undefined)
+      setAlignmentNodeIds([])
+      setNotice(`${target.data.label} 삭제됨`)
+    },
+    [nodes],
+  )
 
-  const splitMembrane = useCallback((id: string) => {
-    const source = nodes.find((node) => node.id === id && node.data.membrane)
-    if (!source?.data.membrane || source.data.membrane.path.length < 3) { setNotice('Split requires a membrane with at least three path points.'); return }
-    const middle = Math.floor(source.data.membrane.path.length / 2); const secondId = uid('membrane')
-    const firstPath = source.data.membrane.path.slice(0, middle + 1); const secondPath = source.data.membrane.path.slice(middle)
-    const firstAnchors = source.data.membrane.anchors.filter((anchor) => anchor.pathPosition <= .5).map((anchor) => ({ ...anchor, pathPosition: anchor.pathPosition * 2 }))
-    const secondAnchors = source.data.membrane.anchors.filter((anchor) => anchor.pathPosition > .5).map((anchor) => ({ ...anchor, pathPosition: (anchor.pathPosition - .5) * 2 }))
-    const first = { ...source, data: { ...source.data, membrane: { ...source.data.membrane, path: firstPath, anchors: firstAnchors } } }
-    const second: BioNodeType = { ...structuredClone(source), id: secondId, position: { x: source.position.x + 12, y: source.position.y + 12 }, selected: true, data: { ...structuredClone(source.data), label: `${source.data.label} 2`, membrane: { ...structuredClone(source.data.membrane), id: secondId, name: `${source.data.membrane.name} 2`, path: secondPath, anchors: secondAnchors } } }
-    setNodes((items) => {
-      const changed = items.map((node) => {
-        if (node.id === id) return first
-        const anchor = node.data.membraneAnchor
-        if (!anchor || anchor.membraneId !== id) return { ...node, selected: false }
-        return anchor.pathPosition <= .5 ? { ...node, data: { ...node.data, membraneAnchor: { ...anchor, pathPosition: anchor.pathPosition * 2 } } } : { ...node, data: { ...node.data, membraneAnchor: { ...anchor, membraneId: secondId, pathPosition: (anchor.pathPosition - .5) * 2 } } }
-      })
-      return repositionMembraneAnchors(repositionMembraneAnchors([...changed, second], first), second)
-    })
-    setSelectedNodeId(secondId); setAlignmentNodeIds([secondId]); setNotice('Membrane split into two editable objects')
-  }, [nodes])
+  const duplicateObjectById = useCallback(
+    (id: string) => {
+      const source = nodes.find((node) => node.id === id)
+      if (!source) return
+      if (source.data.kind === 'cell') {
+        selectObject(id)
+        setTimeout(() => duplicateSelected(), 0)
+        return
+      }
+      const nextId = uid(source.data.kind)
+      const membrane = source.data.membrane ? { ...structuredClone(source.data.membrane), id: nextId, anchors: [] } : undefined
+      const clone: BioNodeType = {
+        ...structuredClone(source),
+        id: nextId,
+        parentId: source.parentId,
+        position: { x: source.position.x + 36, y: source.position.y + 28 },
+        selected: true,
+        data: { ...structuredClone(source.data), membrane, membraneAnchor: undefined },
+      }
+      setNodes((items) => [...items.map((node) => ({ ...node, selected: false })), clone])
+      setSelectedNodeId(nextId)
+      setSelectedEdgeId(undefined)
+      setAlignmentNodeIds([nextId])
+      setNotice(`${source.data.label} 복제됨`)
+    },
+    [duplicateSelected, nodes, selectObject],
+  )
 
-  const handleObjectAction = useCallback((id: string, actionName: string, detail: Record<string, unknown> = {}) => {
-    const node = nodes.find((item) => item.id === id)
-    if (!node) return
-    if (['move-point','add-point','remove-point','straighten','flip'].includes(actionName)) { membraneAction(id, actionName, detail); return }
-    if (actionName === 'split') { splitMembrane(id); return }
-    if (actionName === 'delete') { deleteObjectById(id); return }
-    if (actionName === 'duplicate') { duplicateObjectById(id); return }
-    if (actionName === 'lock') { toggleObjectLock(id); return }
-    if (actionName === 'hide') { toggleObjectVisibility(id); setContextTarget(undefined); return }
-    if (actionName === 'front' || actionName === 'back') { setNodes((items) => items.map((item) => item.id === id ? { ...item, zIndex: actionName === 'front' ? 100 : -1 } : item)); setContextTarget(undefined); return }
-    selectObject(id)
-    if (actionName === 'asset') setShowAssetBrowser(true)
-    else if (actionName === 'edit' && node.data.kind === 'membrane') membraneAction(id, 'edit')
-    else if (actionName === 'edit') openMoleculeBuilder(node)
-    setContextTarget(undefined)
-  }, [deleteObjectById, duplicateObjectById, membraneAction, nodes, openMoleculeBuilder, selectObject, splitMembrane, toggleObjectLock, toggleObjectVisibility])
-
-  const handleContextAction = useCallback((actionName: string) => {
-    if (!contextTarget) return
-    if (contextTarget.kind === 'edge') {
-      const edge = edges.find((item) => item.id === contextTarget.id)
-      if (actionName === 'delete') setEdges((items) => items.filter((item) => item.id !== contextTarget.id))
-      else if (actionName === 'duplicate' && edge) setEdges((items) => [...items, { ...structuredClone(edge), id: uid('edge'), selected: false }])
-      else selectObject(contextTarget.id, 'edge')
-      setContextTarget(undefined); return
-    }
-    handleObjectAction(contextTarget.id, actionName)
-  }, [contextTarget, edges, handleObjectAction, selectObject])
+  const handleObjectAction = useCallback(
+    (id: string, actionName: string, detail: Record<string, unknown> = {}) => {
+      const node = nodes.find((item) => item.id === id)
+      if (!node) return
+      if (actionName === 'patch' && detail.patch) {
+        patchNodeById(id, detail.patch as BioNodePatch)
+        return
+      }
+      if (actionName === 'start-connect') {
+        const rel = (detail.relation as SimpleRelation | undefined) ?? 'Block'
+        const interaction = mapSimpleRelation(rel)
+        setConnectMode({ interaction, indirect: rel === 'Indirect', sourceId: id })
+        setDrawingTool('select')
+        setNotice(`${node.data.label} 선택됨 → 연결할 대상 분자${interaction === 'BLOCK' ? ' 또는 신호선' : ''}을 클릭하세요 (ESC 취소)`)
+        return
+      }
+      if (['move-point', 'add-point', 'remove-point', 'straighten', 'flip'].includes(actionName)) {
+        membraneAction(id, actionName, detail)
+        return
+      }
+      if (actionName === 'delete') {
+        deleteObjectById(id)
+        return
+      }
+      if (actionName === 'duplicate') {
+        duplicateObjectById(id)
+        return
+      }
+      if (actionName === 'lock') {
+        setNodes((items) =>
+          items.map((item) =>
+            item.id === id
+              ? { ...item, draggable: !!item.data.locked, data: { ...item.data, locked: !item.data.locked, positionMode: item.data.locked ? 'manual' : 'pinned' } }
+              : item,
+          ),
+        )
+        return
+      }
+      if (actionName === 'hide') {
+        setNodes((items) =>
+          items.map((item) => (item.id === id ? { ...item, hidden: !item.hidden, data: { ...item.data, visibility: item.hidden ? 'visible' : 'manually_hidden' } } : item)),
+        )
+        setContextTarget(undefined)
+        return
+      }
+      if (actionName === 'front' || actionName === 'back') {
+        setNodes((items) => items.map((item) => (item.id === id ? { ...item, zIndex: actionName === 'front' ? 100 : -1 } : item)))
+        setContextTarget(undefined)
+        return
+      }
+      selectObject(id)
+      if (actionName === 'asset') setShowAssetBrowser(true)
+      else if (actionName === 'edit' && node.data.kind === 'membrane') membraneAction(id, 'edit')
+      else if (actionName === 'edit') openMoleculeBuilder(node)
+      setContextTarget(undefined)
+    },
+    [deleteObjectById, duplicateObjectById, membraneAction, nodes, openMoleculeBuilder, patchNodeById, selectObject],
+  )
 
   useEffect(() => {
-    const objectAction = (event: Event) => { const detail = (event as CustomEvent<{ id: string; action: string } & Record<string, unknown>>).detail; handleObjectAction(detail.id, detail.action, detail) }
+    const objectAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; action: string } & Record<string, unknown>>).detail
+      handleObjectAction(detail.id, detail.action, detail)
+    }
+    const edgeAction = (event: Event) => {
+      const detail = (event as CustomEvent<{ id: string; action: string; interaction?: InteractionType }>).detail
+      if (detail.action === 'delete') {
+        setEdges((curr) => pruneSimpleEdges(nodes, curr.filter((e) => e.id !== detail.id)))
+        setSelectedEdgeId(undefined)
+      } else if (detail.action === 'set-type' && detail.interaction) {
+        updateEdgeById(detail.id, detail.interaction)
+      } else if (detail.action === 'toggle-indirect') {
+        setEdges((curr) => curr.map((e) => (e.id === detail.id ? { ...e, data: { ...(e.data ?? { interaction: 'BIND' }), indirect: !e.data?.indirect } } : e)))
+      }
+    }
     window.addEventListener('bioscene:object-action', objectAction)
-    return () => window.removeEventListener('bioscene:object-action', objectAction)
-  }, [handleObjectAction])
+    window.addEventListener('bioscene:edge-action', edgeAction)
+    return () => {
+      window.removeEventListener('bioscene:object-action', objectAction)
+      window.removeEventListener('bioscene:edge-action', edgeAction)
+    }
+  }, [handleObjectAction, nodes, updateEdgeById])
+
+  const handleContextAction = useCallback(
+    (actionName: string) => {
+      if (!contextTarget) return
+      if (contextTarget.kind === 'edge') {
+        const edge = edges.find((item) => item.id === contextTarget.id)
+        if (actionName === 'delete') setEdges((items) => pruneSimpleEdges(nodes, items.filter((item) => item.id !== contextTarget.id)))
+        else if (actionName === 'duplicate' && edge) setEdges((items) => [...items, { ...structuredClone(edge), id: uid('edge'), selected: false }])
+        else selectObject(contextTarget.id, 'edge')
+        setContextTarget(undefined)
+        return
+      }
+      handleObjectAction(contextTarget.id, actionName)
+    },
+    [contextTarget, edges, handleObjectAction, nodes, selectObject],
+  )
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const typing = !!target?.closest('input,textarea,select,[contenteditable="true"]')
-      if (event.key === 'Escape') { setSimpleRelation(undefined);setRelationSource(undefined);setDraftMembrane(undefined); setDrawingTool('select'); setContextTarget(undefined); setNotice('Select mode'); return }
-      if (typing || welcome) return
-      const key = event.key.toLowerCase(); const command = event.ctrlKey || event.metaKey
-      if (command && key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return }
-      if (command && key === 'y') { event.preventDefault(); redo(); return }
-      if (command && key === 'c') { event.preventDefault(); copySelected(); return }
-      if (command && key === 'v') { event.preventDefault(); pasteObjects(); return }
-      if (command && key === 'd') { event.preventDefault(); duplicateSelected(); return }
-      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected(); return }
-      if(simple)return
-      const shortcuts: Partial<Record<string, DrawingTool>> = { v: 'select', h: 'pan', m: 'freehand_membrane', c: 'place_cell', p: 'place_receptor', a: 'place_antibody', l: 'place_ligand', t: 'place_annotation' }
-      if (shortcuts[key]) { event.preventDefault(); setDrawingTool(shortcuts[key]!); setNotice(`${shortcuts[key]!.replaceAll('_', ' ')} mode`) }
+      if (event.key === 'Escape') {
+        setConnectMode(undefined)
+        setDraftMembrane(undefined)
+        setDrawingTool('select')
+        setContextTarget(undefined)
+        setNotice('선택 모드')
+        return
+      }
+      if (typing) return
+      const key = event.key.toLowerCase()
+      const command = event.ctrlKey || event.metaKey
+      if (command && key === 'z') {
+        event.preventDefault()
+        if (event.shiftKey) redo()
+        else undo()
+        return
+      }
+      if (command && key === 'y') {
+        event.preventDefault()
+        redo()
+        return
+      }
+      if (command && key === 'c') {
+        event.preventDefault()
+        copySelected()
+        return
+      }
+      if (command && key === 'v') {
+        event.preventDefault()
+        pasteObjects()
+        return
+      }
+      if (command && key === 'd') {
+        event.preventDefault()
+        duplicateSelected()
+        return
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault()
+        deleteSelected()
+        return
+      }
+      const shortcuts: Partial<Record<string, DrawingTool>> = {
+        v: 'select',
+        h: 'pan',
+        m: 'freehand_membrane',
+        c: 'place_cell',
+        p: 'place_receptor',
+        a: 'place_antibody',
+        l: 'place_ligand',
+        t: 'place_annotation',
+      }
+      if (shortcuts[key]) {
+        event.preventDefault()
+        setDrawingTool(shortcuts[key]!)
+        setConnectMode(undefined)
+      }
     }
-    window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler)
-  }, [copySelected, deleteSelected, duplicateSelected, pasteObjects, redo, undo, simple, welcome])
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [copySelected, deleteSelected, duplicateSelected, pasteObjects, redo, undo])
 
-  const changeVisualizationProfile = useCallback((profile: VisualizationProfile) => {
-    const scoped = applyVisualizationProfile(nodes, edges, profile)
-    setVisualizationProfile(profile)
-    setNodes(scoped.nodes)
-    setEdges(scoped.edges)
-    setActiveViewId(undefined)
-    setNotice(`${sceneTypeLabels[profile.sceneType]} · detail ${profile.detailLevel}`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .12, duration: 350 }))
-  }, [edges, nodes])
+  const changeVisualizationProfile = useCallback(
+    (profile: VisualizationProfile) => {
+      const scoped = applyVisualizationProfile(nodes, edges, profile)
+      setVisualizationProfile(profile)
+      setNodes(scoped.nodes)
+      setEdges(scoped.edges)
+      setActiveViewId(undefined)
+      setNotice(`${sceneTypeLabels[profile.sceneType]} 적용됨`)
+      requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 350 }))
+    },
+    [edges, nodes],
+  )
 
-  const saveCurrentView = useCallback(() => {
-    const name = window.prompt('저장할 뷰 이름을 입력하세요.', `${sceneTypeLabels[visualizationProfile.sceneType]} view`)
-    if (!name?.trim()) return
-    const view = captureView(uid('view'), name.trim(), visualizationProfile, nodes)
-    setViews((items) => [...items, view])
-    setActiveViewId(view.id)
-    setNotice(`${view.name} view saved`)
-  }, [nodes, visualizationProfile])
-
-  const openSavedView = useCallback((view: SceneView) => {
-    const restored = restoreView(view, nodes, edges)
-    setVisualizationProfile(view.profile)
-    setNodes(restored.nodes)
-    setEdges(restored.edges)
-    setActiveViewId(view.id)
-    setNotice(`${view.name} view restored`)
-    setShowSceneSettings(false)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .12, duration: 400 }))
-  }, [edges, nodes])
-
-  const createEmptyFigure = useCallback(() => {
-    if ((nodes.length || literature.length || review.notes || collaboration.comments.length) && !window.confirm('새 빈 장면을 만들까요? 현재 장면은 자동 저장 기록에서 교체됩니다. 먼저 Save JSON을 권장합니다.')) return
+  const startEmptyCanvas = useCallback(() => {
     const profile = { ...visualizationProfile, sceneType: 'empty' as const, layoutMode: 'single' as const }
-    setNodes([]); setEdges([]); setVisualizationProfile(profile); setViews([]); setActiveViewId(undefined); setTemplateId(DEFAULT_TEMPLATE_ID); setSceneTitle('Untitled biological figure'); setSceneCreatedAt(new Date().toISOString()); setMechanism(undefined); setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() }); setLiterature([]); setCollaboration(emptyCollaboration()); setWorkspace({ ...defaultFigureWorkspace }); setDrawingTool('select'); setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setShowNewFigure(false); setShowWorkspaceSetup(true); setNotice('Choose a figure workspace to begin')
-  }, [collaboration.comments.length, literature.length, nodes.length, review.notes, visualizationProfile])
+    setNodes([])
+    setEdges([])
+    setVisualizationProfile(profile)
+    setViews([])
+    setActiveViewId(undefined)
+    setTemplateId(DEFAULT_TEMPLATE_ID)
+    setSceneTitle('새 MoA 그림')
+    setSceneCreatedAt(new Date().toISOString())
+    setMechanism(undefined)
+    setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
+    setLiterature([])
+    setCollaboration(emptyCollaboration())
+    setWorkspace({ ...defaultFigureWorkspace })
+    setDrawingTool('select')
+    setConnectMode(undefined)
+    setSelectedNodeId(undefined)
+    setSelectedEdgeId(undefined)
+    setNotice('빈 캔버스가 준비되었습니다. 좌측 팔레트에서 세포·단백질·항체를 클릭해 추가하세요.')
+  }, [visualizationProfile])
 
-  const handleNodeDragStop = useCallback((node: BioNodeType) => {
-    setNodes((current) => {
-      if (node.data.simpleCell || current.some(n=>n.id===node.parentId&&n.data.simpleCell)) return layoutSimpleCells(current.map(n=>n.id===node.id?{...node,data:{...node.data,positionMode:'manual'}}:n))
-      const dragged = { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' as const } }
-      if (dragged.data.kind === 'membrane') {
-        const next = current.map((item) => item.id === dragged.id ? dragged : item)
-        return repositionMembraneAnchors(next, dragged)
-      }
-      if (dragged.data.kind !== 'receptor' || dragged.parentId) return current.map((item) => item.id === dragged.id ? dragged : item)
-      const size = nodeSize(dragged)
-      const center = { x: dragged.position.x + size.width / 2, y: dragged.position.y + size.height / 2 }
-      let best: { membrane: BioNodeType; distance: number; pathPosition: number; angle: number; x: number; y: number } | undefined
-      for (const membraneNode of current.filter((item) => item.data.kind === 'membrane' && item.data.membrane)) {
-        const localQuery = { x: center.x - membraneNode.position.x, y: center.y - membraneNode.position.y }
-        const nearest = nearestPathPoint(membraneNode.data.membrane!.path, localQuery)
-        if (!best || nearest.distance < best.distance) best = { membrane: membraneNode, distance: nearest.distance, pathPosition: nearest.pathPosition, angle: nearest.angle, x: membraneNode.position.x + nearest.point.x, y: membraneNode.position.y + nearest.point.y }
-      }
-      if (!best || best.distance > 70) return current.map((item) => {
-        if (item.id === dragged.id) return { ...dragged, data: { ...dragged.data, membraneAnchor: undefined } }
-        if (item.data.kind === 'membrane' && item.data.membrane?.anchors.some((anchor) => anchor.objectId === dragged.id)) return { ...item, data: { ...item.data, membrane: { ...item.data.membrane, anchors: item.data.membrane.anchors.filter((anchor) => anchor.objectId !== dragged.id) } } }
-        return item
+  const loadBlueprint = useCallback((bp: StudioBlueprint) => {
+    const built = bp.build()
+    setNodes(built.nodes)
+    setEdges(built.edges)
+    setSceneTitle(built.title)
+    setMoleculeLibrary((curr) => [
+      ...curr,
+      ...built.library.filter((m) => !curr.some((x) => x.id === m.id)),
+    ])
+    setConnectMode(undefined)
+    setSelectedNodeId(undefined)
+    setSelectedEdgeId(undefined)
+    setNotice(`‘${bp.title}’ 표준 도식이 로드되었습니다. 모든 개체를 드래그·편집할 수 있습니다.`)
+    window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.12, duration: 350 }), 60)
+  }, [])
+
+  const handleNodeDragStop = useCallback(
+    (node: BioNodeType) => {
+      setNodes((current) => {
+        // Free, responsive positioning inside cells: keep membrane snap smooth without locking Y on non-membrane objects!
+        const parentCell = current.find((item) => item.id === node.parentId && item.data.kind === 'cell')
+        if (parentCell && parentCell.data.cellShape === 'membrane_zoom' && node.data.kind === 'receptor') {
+          const snappedY = Math.abs(node.position.y - 174) < 42 ? 174 : node.position.y
+          const cellWidth = Number(parentCell.style?.width ?? 660)
+          const pathPosition = Math.max(0.04, Math.min(0.96, (node.position.x + 48) / cellWidth))
+          return current.map((item) =>
+            item.id === node.id
+              ? {
+                  ...node,
+                  position: { x: node.position.x, y: snappedY },
+                  data: {
+                    ...node.data,
+                    positionMode: 'manual',
+                    membraneAnchor: snappedY === 174 ? { membraneId: parentCell.id, pathPosition, orientation: 'normal', angle: 0 } : node.data.membraneAnchor,
+                  },
+                }
+              : item,
+          )
+        }
+
+        const dragged = { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' as const } }
+        if (dragged.data.kind === 'membrane') {
+          const next = current.map((item) => (item.id === dragged.id ? dragged : item))
+          return repositionMembraneAnchors(next, dragged)
+        }
+        if (dragged.data.kind !== 'receptor' || dragged.parentId) {
+          return current.map((item) => (item.id === dragged.id ? dragged : item))
+        }
+
+        // Snap free-floating receptor onto drawn freehand/straight membrane when dragged nearby
+        const size = nodeSize(dragged)
+        const center = { x: dragged.position.x + size.width / 2, y: dragged.position.y + size.height / 2 }
+        let best: { membrane: BioNodeType; distance: number; pathPosition: number; angle: number; x: number; y: number } | undefined
+        for (const membraneNode of current.filter((item) => item.data.kind === 'membrane' && item.data.membrane)) {
+          const localQuery = { x: center.x - membraneNode.position.x, y: center.y - membraneNode.position.y }
+          const nearest = nearestPathPoint(membraneNode.data.membrane!.path, localQuery)
+          if (!best || nearest.distance < best.distance) {
+            best = {
+              membrane: membraneNode,
+              distance: nearest.distance,
+              pathPosition: nearest.pathPosition,
+              angle: nearest.angle,
+              x: membraneNode.position.x + nearest.point.x,
+              y: membraneNode.position.y + nearest.point.y,
+            }
+          }
+        }
+        if (!best || best.distance > 75) {
+          return current.map((item) => {
+            if (item.id === dragged.id) return { ...dragged, data: { ...dragged.data, membraneAnchor: undefined } }
+            if (item.data.kind === 'membrane' && item.data.membrane?.anchors.some((anchor) => anchor.objectId === dragged.id)) {
+              return {
+                ...item,
+                data: {
+                  ...item.data,
+                  membrane: { ...item.data.membrane, anchors: item.data.membrane.anchors.filter((anchor) => anchor.objectId !== dragged.id) },
+                },
+              }
+            }
+            return item
+          })
+        }
+        const anchor = { membraneId: best.membrane.id, pathPosition: best.pathPosition, orientation: 'normal' as const, angle: best.angle }
+        const nextMembraneData: MembraneDefinition = {
+          ...best.membrane.data.membrane!,
+          anchors: [...best.membrane.data.membrane!.anchors.filter((item) => item.objectId !== dragged.id), { objectId: dragged.id, pathPosition: best.pathPosition, orientation: 'normal' }],
+        }
+        setNotice(`${dragged.data.label} 수용체가 막에 자석 고정되었습니다.`)
+        return current.map((item) =>
+          item.id === dragged.id
+            ? { ...dragged, position: { x: best!.x - size.width / 2, y: best!.y - size.height / 2 }, data: { ...dragged.data, compartment: 'membrane', membraneAnchor: anchor } }
+            : item.id === best!.membrane.id
+              ? { ...item, data: { ...item.data, membrane: nextMembraneData } }
+              : item,
+        )
       })
-      const anchor = { membraneId: best.membrane.id, pathPosition: best.pathPosition, orientation: 'normal' as const, angle: best.angle }
-      const nextMembraneData: MembraneDefinition = {
-        ...best.membrane.data.membrane!,
-        anchors: [...best.membrane.data.membrane!.anchors.filter((item) => item.objectId !== dragged.id), { objectId: dragged.id, pathPosition: best.pathPosition, orientation: 'normal' }],
-      }
-      setNotice(`${dragged.data.label} snapped to ${best.membrane.data.label}`)
-      return current.map((item) => item.id === dragged.id
-        ? { ...dragged, position: { x: best!.x - size.width / 2, y: best!.y - size.height / 2 }, data: { ...dragged.data, compartment: 'membrane', membraneAnchor: anchor } }
-        : item.id === best!.membrane.id ? { ...item, data: { ...item.data, membrane: nextMembraneData } }
-        : item.data.kind === 'membrane' && item.data.membrane?.anchors.some((record) => record.objectId === dragged.id) ? { ...item, data: { ...item.data, membrane: { ...item.data.membrane, anchors: item.data.membrane.anchors.filter((record) => record.objectId !== dragged.id) } } } : item)
-    })
-  }, [mode])
-
-  const fitWorkspace = useCallback(() => {
-    instanceRef.current?.fitBounds({ x: 0, y: 0, width: workspace.width, height: workspace.height }, { padding: .04, duration: 400 })
-  }, [workspace.height, workspace.width])
+    },
+    [mode],
+  )
 
   const saveWorkspace = useCallback((next: FigureWorkspace) => {
-    setWorkspace(next); setShowWorkspaceSetup(false); setNotice(`Workspace ${Math.round(next.width)} × ${Math.round(next.height)} ${next.unit} ready`)
-    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: .04, duration: 450 }))
+    setWorkspace(next)
+    setShowWorkspaceSetup(false)
+    setNotice(`캔버스 크기 ${Math.round(next.width)} × ${Math.round(next.height)} ${next.unit} 적용됨`)
+    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: 0.04, duration: 350 }))
   }, [])
 
   const fitWorkspaceToContent = useCallback(() => {
@@ -876,519 +1521,1092 @@ function AppCanvas() {
     const right = Math.max(800, ...visible.map((node) => node.position.x + nodeSize(node).width + 80))
     const bottom = Math.max(600, ...visible.map((node) => node.position.y + nodeSize(node).height + 80))
     const next = { ...workspace, preset: 'custom' as const, width: Math.ceil(right), height: Math.ceil(bottom) }
-    setWorkspace(next); setNotice('Workspace fitted to visible content')
-    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: .04, duration: 400 }))
+    setWorkspace(next)
+    requestAnimationFrame(() => instanceRef.current?.fitBounds({ x: 0, y: 0, width: next.width, height: next.height }, { padding: 0.04, duration: 350 }))
   }, [nodes, workspace])
 
-  const startDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (!['freehand_membrane','straight_membrane'].includes(drawingTool) || !instanceRef.current) return
-    if ((event.target as HTMLElement).closest('.react-flow__panel,.react-flow__controls,.react-flow__minimap,.blank-quick-start')) return
-    const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
-    const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    setDraftMembrane({ flow: [flow], screen: [{ x: event.clientX - rect.left, y: event.clientY - rect.top }] })
-    event.currentTarget.setPointerCapture(event.pointerId)
-  }, [drawingTool])
+  const startDrawing = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!['freehand_membrane', 'straight_membrane'].includes(drawingTool) || !instanceRef.current) return
+      if ((event.target as HTMLElement).closest('.react-flow__panel,.react-flow__controls,.react-flow__minimap')) return
+      const rect = flowRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      setDraftMembrane({ flow: [flow], screen: [{ x: event.clientX - rect.left, y: event.clientY - rect.top }] })
+      event.currentTarget.setPointerCapture(event.pointerId)
+    },
+    [drawingTool],
+  )
 
-  const continueDrawing = useCallback((event: ReactPointerEvent<HTMLElement>) => {
-    if (!draftMembrane || !instanceRef.current || !['freehand_membrane','straight_membrane'].includes(drawingTool)) return
-    const rect = flowRef.current?.getBoundingClientRect(); if (!rect) return
-    const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-    setDraftMembrane((draft) => {
-      if (!draft) return draft
-      const last = draft.screen[draft.screen.length - 1]
-      if (Math.hypot(screen.x - last.x, screen.y - last.y) < 4) return draft
-      return { flow: [...draft.flow, flow], screen: [...draft.screen, screen] }
-    })
-  }, [draftMembrane, drawingTool])
+  const continueDrawing = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (!draftMembrane || !instanceRef.current || !['freehand_membrane', 'straight_membrane'].includes(drawingTool)) return
+      const rect = flowRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const flow = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      const screen = { x: event.clientX - rect.left, y: event.clientY - rect.top }
+      setDraftMembrane((draft) => {
+        if (!draft) return draft
+        const last = draft.screen[draft.screen.length - 1]
+        if (Math.hypot(screen.x - last.x, screen.y - last.y) < 4) return draft
+        return { flow: [...draft.flow, flow], screen: [...draft.screen, screen] }
+      })
+    },
+    [draftMembrane, drawingTool],
+  )
 
   const finishDrawing = useCallback(() => {
-    if (!draftMembrane || !['freehand_membrane','straight_membrane'].includes(drawingTool)) return
-    const raw = drawingTool === 'straight_membrane' && draftMembrane.flow.length > 1 ? [draftMembrane.flow[0], draftMembrane.flow[draftMembrane.flow.length - 1]] : draftMembrane.flow
+    if (!draftMembrane || !['freehand_membrane', 'straight_membrane'].includes(drawingTool)) return
+    const raw =
+      drawingTool === 'straight_membrane' && draftMembrane.flow.length > 1
+        ? [draftMembrane.flow[0], draftMembrane.flow[draftMembrane.flow.length - 1]]
+        : draftMembrane.flow
     setDraftMembrane(undefined)
     if (raw.length < 2 || Math.hypot(raw.at(-1)!.x - raw[0].x, raw.at(-1)!.y - raw[0].y) < 20) return
-    const smoothed = drawingTool === 'freehand_membrane' ? smoothMembranePoints(raw, .72) : raw
-    const minX = Math.min(...smoothed.map((point) => point.x)); const minY = Math.min(...smoothed.map((point) => point.y))
-    const maxX = Math.max(...smoothed.map((point) => point.x)); const maxY = Math.max(...smoothed.map((point) => point.y)); const pad = 30
+    const smoothed = drawingTool === 'freehand_membrane' ? smoothMembranePoints(raw, 0.72) : raw
+    const minX = Math.min(...smoothed.map((point) => point.x))
+    const minY = Math.min(...smoothed.map((point) => point.y))
+    const maxX = Math.max(...smoothed.map((point) => point.x))
+    const maxY = Math.max(...smoothed.map((point) => point.y))
+    const pad = 30
     const path = smoothed.map((point) => ({ x: point.x - minX + pad, y: point.y - minY + pad }))
     const id = uid('membrane')
-    const membrane: MembraneDefinition = { id, name: 'Plasma membrane', boundaryType: 'plasma_membrane', path, sideA: 'extracellular', sideB: 'cytoplasm', closed: false, style: 'detailed', thickness: 14, smoothing: 65, anchors: [] }
-    const node: BioNodeType = { id, type: 'membrane', deletable: false, selected: true, position: { x: minX - pad, y: minY - pad }, style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) }, data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }) }
-    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node]); setSelectedNodeId(id); setAlignmentNodeIds([id]); if (!continuousTool) setDrawingTool('select'); setNotice(`Biological membrane created${continuousTool ? '. Draw again or press ESC to exit.' : '. Drag a receptor near it to snap.'}`)
+    const membrane: MembraneDefinition = {
+      id,
+      name: 'Plasma membrane',
+      boundaryType: 'plasma_membrane',
+      path,
+      sideA: 'extracellular',
+      sideB: 'cytoplasm',
+      closed: false,
+      style: 'detailed',
+      thickness: 14,
+      smoothing: 65,
+      anchors: [],
+    }
+    const node: BioNodeType = {
+      id,
+      type: 'membrane',
+      deletable: false,
+      selected: true,
+      position: { x: minX - pad, y: minY - pad },
+      style: { width: Math.max(80, maxX - minX + pad * 2), height: Math.max(70, maxY - minY + pad * 2) },
+      data: createBioData('membrane', 'Plasma membrane', { membrane, visibility: 'visible', positionMode: 'manual' }),
+    }
+    setNodes((items) => [...items.map((item) => ({ ...item, selected: false })), node])
+    setSelectedNodeId(id)
+    setAlignmentNodeIds([id])
+    if (!continuousTool) setDrawingTool('select')
+    setNotice('인지질 이중층 막이 생성되었습니다. 수용체를 가까이 드래그하면 막에 고정됩니다.')
   }, [continuousTool, draftMembrane, drawingTool])
 
-  const handlePaneClick = useCallback((event: React.MouseEvent) => {
-    setContextTarget(undefined)
-    if (!instanceRef.current) return
-    const position = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
-    if (drawingTool === 'place_cell') placeCellAt(position)
-    else if (drawingTool === 'place_receptor') placeNodeAt('receptor', position)
-    else if (drawingTool === 'place_antibody') placeNodeAt('antibody', position)
-    else if (drawingTool === 'place_ligand') placeNodeAt('ligand', position)
-    else if (drawingTool === 'place_annotation') placeCalloutAt(position)
-    else if (drawingTool === 'select') { setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]) }
-  }, [drawingTool, placeCalloutAt, placeCellAt, placeNodeAt])
+  const handlePaneClick = useCallback(
+    (event: React.MouseEvent) => {
+      setContextTarget(undefined)
+      if (!instanceRef.current) return
+      const position = instanceRef.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })
+      if (drawingTool === 'place_cell') placeCellAt(position)
+      else if (drawingTool === 'place_receptor') placeNodeAt('receptor', position)
+      else if (drawingTool === 'place_antibody') placeNodeAt('antibody', position)
+      else if (drawingTool === 'place_ligand') placeNodeAt('ligand', position)
+      else if (drawingTool === 'place_annotation') placeCalloutAt(position)
+      else if (drawingTool === 'select') {
+        setConnectMode(undefined)
+        setSelectedNodeId(undefined)
+        setSelectedEdgeId(undefined)
+        setAlignmentNodeIds([])
+      }
+    },
+    [drawingTool, placeCalloutAt, placeCellAt, placeNodeAt],
+  )
+
+  const handleNodeClickInStudio = useCallback(
+    (event: React.MouseEvent, node: BioNodeType) => {
+      if (connectMode) {
+        if (['cell', 'membrane', 'annotation'].includes(node.data.kind)) {
+          setNotice('세포 배경 대신 연결할 분자(항체·수용체·사이토카인·신호단백질)를 클릭하세요.')
+          return
+        }
+        if (!connectMode.sourceId) {
+          setConnectMode({ ...connectMode, sourceId: node.id })
+          setNotice(`${node.data.label} 출발 선택됨 → 도착 분자${connectMode.interaction === 'BLOCK' ? ' 또는 차단할 신호선' : ''}을 클릭하세요.`)
+        } else {
+          performStudioConnect(connectMode.sourceId, node.id, connectMode.interaction, { indirect: connectMode.indirect })
+        }
+        return
+      }
+      selectObject(node.id, 'node', event.shiftKey)
+    },
+    [connectMode, performStudioConnect, selectObject],
+  )
+
+  const handleEdgeClickInStudio = useCallback(
+    (_: React.MouseEvent, edge: BioEdge) => {
+      if (connectMode && connectMode.interaction === 'BLOCK' && connectMode.sourceId) {
+        performStudioConnect(connectMode.sourceId, edge.target, 'BLOCK', { blockedEdgeId: edge.id })
+        return
+      }
+      selectObject(edge.id, 'edge')
+    },
+    [connectMode, performStudioConnect, selectObject],
+  )
 
   const runLayout = useCallback(async () => {
     setIsLayingOut(true)
     try {
-      const laidOut = nodes.some(n=>n.data.simpleCell) ? layoutSimpleCells(nodes, false) : await autoLayout(nodes, edges)
+      const laidOut = nodes.some((n) => n.data.simpleCell) ? layoutSimpleCells(nodes, false) : await autoLayout(nodes, edges, false)
       setNodes(laidOut)
-      requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 550 }))
-      setNotice('Biology-aware ELK layout applied by compartment')
-    } catch (error) { setNotice(`Auto layout failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-    finally { setIsLayingOut(false) }
+      requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 400 }))
+      setNotice('세포 구획 기준으로 분자 배치가 깔끔하게 정렬되었습니다.')
+    } catch (error) {
+      setNotice(`자동 정렬 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+    } finally {
+      setIsLayingOut(false)
+    }
   }, [edges, nodes])
 
-  const resetScene = useCallback(() => {
-    if (!window.confirm('Reset this scene? Current objects, literature links, review notes, and comments will be replaced.')) return
-    const template = cloneTemplate(templateId)
-    const scoped = applyVisualizationProfile(template.nodes, template.edges, visualizationProfile)
-    setNodes(scoped.nodes)
-    setEdges(scoped.edges)
-    setMode('biological')
-    setMechanism(undefined)
-    setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
-    setLiterature([])
-    setCollaboration(emptyCollaboration())
-    setSceneTitle(template.title)
-    setSceneCreatedAt(new Date().toISOString())
-    setSelectedNodeId(undefined)
-    setSelectedEdgeId(undefined)
-    setNotice(`${template.title} template restored`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 450 }))
-  }, [templateId, visualizationProfile])
-
-  const loadTemplate = useCallback((nextTemplateId: SceneTemplateId) => {
-    if (nextTemplateId === templateId || !window.confirm('Switch templates? Current objects, literature links, review notes, and comments will be replaced.')) return
-    const template = cloneTemplate(nextTemplateId)
-    const nextProfile = {
-      ...visualizationProfile,
-      layoutMode: nextTemplateId === 'receptor-blockade-comparison' ? 'comparison' as const : nextTemplateId === 'tumor-immune-crosstalk' ? 'multi_panel' as const : 'single' as const,
-    }
-    const scoped = applyVisualizationProfile(template.nodes, template.edges, nextProfile)
-    setTemplateId(nextTemplateId)
-    setVisualizationProfile(nextProfile)
-    setSceneTitle(template.title)
-    setSceneCreatedAt(new Date().toISOString())
-    setMechanism(undefined)
-    setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
-    setLiterature([])
-    setCollaboration(emptyCollaboration())
-    setNodes(scoped.nodes)
-    setEdges(scoped.edges)
-    setViews([])
-    setActiveViewId(undefined)
-    setMode('biological')
-    setSelectedNodeId(undefined)
-    setSelectedEdgeId(undefined)
-    setNotice(`${template.title} template loaded`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.08, duration: 500 }))
-  }, [templateId, visualizationProfile])
+  const loadTemplate = useCallback(
+    (nextTemplateId: SceneTemplateId) => {
+      const template = cloneTemplate(nextTemplateId)
+      const nextProfile = {
+        ...visualizationProfile,
+        layoutMode:
+          nextTemplateId === 'receptor-blockade-comparison'
+            ? ('comparison' as const)
+            : nextTemplateId === 'tumor-immune-crosstalk'
+              ? ('multi_panel' as const)
+              : ('single' as const),
+      }
+      const scoped = applyVisualizationProfile(template.nodes, template.edges, nextProfile)
+      setTemplateId(nextTemplateId)
+      setVisualizationProfile(nextProfile)
+      setSceneTitle(template.title)
+      setSceneCreatedAt(new Date().toISOString())
+      setMechanism(undefined)
+      setNodes(scoped.nodes)
+      setEdges(scoped.edges)
+      setSelectedNodeId(undefined)
+      setSelectedEdgeId(undefined)
+      setNotice(`${template.title} 템플릿이 적용되었습니다.`)
+      requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.1, duration: 400 }))
+    },
+    [visualizationProfile],
+  )
 
   const generateFromMechanism = useCallback((parsed: ParsedMechanism) => {
-    if (nodes.length && !window.confirm('Generate a new mechanism scene? Current objects, literature links, review notes, and comments will be replaced.')) return
     const generated = sceneFromMechanism(parsed)
-    const profile = simple ? {...defaultVisualizationProfile,detailLevel:4 as const} : visualizationProfile
+    const profile = { ...defaultVisualizationProfile, detailLevel: 4 as const }
     const scoped = applyVisualizationProfile(generated.nodes, generated.edges, profile)
     setVisualizationProfile(profile)
-    setSimplePanel(undefined)
     setNodes(scoped.nodes)
     setEdges(scoped.edges)
     setTemplateId(generated.templateId)
     setSceneTitle(generated.title)
     setSceneCreatedAt(new Date().toISOString())
     setMechanism(parsed)
-    setReview({ status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
-    setLiterature([])
-    setCollaboration(emptyCollaboration())
-    setMode('biological')
-    setViews([])
-    setActiveViewId(undefined)
-    setSelectedNodeId(undefined)
-    setSelectedEdgeId(undefined)
     setShowMechanismComposer(false)
-    setNotice(`Generated ${parsed.entities.length} entities and ${parsed.interactions.length} typed interactions`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.08, duration: 550 }))
-  }, [visualizationProfile, simple, nodes.length])
+    setNotice(`${parsed.entities.length}개 생물학 개체와 ${parsed.interactions.length}개 상호작용이 자동 생성되었습니다.`)
+    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.1, duration: 450 }))
+  }, [])
 
   const saveJson = useCallback(() => {
     downloadText(`bioscene-${templateId}.json`, JSON.stringify(currentScene, null, 2), 'application/json')
-    setNotice('Scene JSON saved')
+    setNotice('작업 파일(.json)이 다운로드되었습니다.')
   }, [currentScene, templateId])
 
-  const loadJson = useCallback(async (file: File) => {
-    try {
-      const parsed = parseSceneFile(JSON.parse(await file.text()))
-      if (!parsed) throw new Error('Invalid scene schema')
-      applySceneState(parsed)
-      setWelcome(false)
-      setSimplePanel(undefined)
-      setNotice(`${file.name} restored`)
-      requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 450 }))
-    } catch {
-      setNotice('Could not load scene: invalid BioScene JSON')
-    }
-  }, [applySceneState])
-
-  const exportFigure = useCallback(async (format: 'png' | 'svg' | 'pptx' | 'package') => {
-    const target = flowRef.current?.querySelector('.react-flow__viewport') as HTMLElement | null
-    if (!target) return
-    let restorePaint: (()=>void)|undefined
-    try {
-    setSelectedNodeId(undefined)
-    setSelectedEdgeId(undefined)
-    setNodes(items=>items.map(n=>({...n,selected:false})))
-    setEdges(items=>items.map(e=>({...e,selected:false})))
-    const workspaceScene = !simple && visualizationProfile.sceneType === 'empty'
-    if (workspaceScene) await instanceRef.current?.fitBounds({ x: 0, y: 0, width: workspace.width, height: workspace.height }, { padding: 0, duration: 0 })
-    else await instanceRef.current?.fitView({ padding: .14, duration: 0 })
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    assertVisibleBlocksForCapture(target, edges.filter(edge => edge.data?.interaction === 'BLOCK' && !edge.hidden && !instanceRef.current?.getNode(edge.source)?.hidden && !instanceRef.current?.getNode(edge.target)?.hidden).map(edge => edge.id))
-    const presetSpec = exportSpecs[exportPreset]
-    const spec = workspaceScene ? { ...presetSpec, width: Math.round(workspace.width), height: Math.round(workspace.height) } : presetSpec
-    const background = workspaceScene ? workspaceBackground(workspace) : exportPreset === 'transparent' ? undefined : styleBackground[stylePreset]
-    const attribution = assetAttribution(nodes)
-    const filter = (element: HTMLElement) => element.dataset?.exportExclude !== 'true'
-    const bounds=instanceRef.current?.getNodesBounds(nodes.filter(n=>!n.hidden))
-    const zoom=bounds?Math.min((spec.width-120)/Math.max(1,bounds.width),(spec.height-120)/Math.max(1,bounds.height)):1
-    const captureStyle=simple&&bounds?{transform:`translate(${(spec.width-bounds.width*zoom)/2-bounds.x*zoom}px, ${(spec.height-bounds.height*zoom)/2-bounds.y*zoom}px) scale(${zoom})`,transformOrigin:'0 0'}:undefined
-    restorePaint=inlineSvgPaintForCapture(target)
-    if (format === 'svg' || format === 'package') {
-      const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height, filter, style:captureStyle })
-      const dataUrl = addSvgCredit(rawSvg, attribution.compact, spec.width, spec.height)
-      if(format==='package') {
-        const zip = new JSZip()
-        zip.file('scene.svg',decodeURIComponent(dataUrl.slice(dataUrl.indexOf(',')+1)))
-        zip.file('scene.json',JSON.stringify(currentScene,null,2))
-        zip.file('scene_prompt.md',`# ${sceneTitle}\n\nBeautify this scientific blueprint. Preserve every molecule, label, compartment, connection and inhibition mark. Do not infer extra biology. Counts are visual representation counts, not biological copy numbers.\n\nObjects:\n${nodes.map(n=>`- ${n.data.label} (${n.data.kind}, ${n.data.compartment})`).join('\n')}\n\nRelationships:\n${edges.map(e=>`- ${blueprintRelationship(e,nodes,edges)}`).join('\n')}\n\n${assetAttribution(nodes).full}`)
-        const blob=await zip.generateAsync({type:'blob'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bioscene-ai-blueprint.zip';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000)
-      } else { const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.svg`; anchor.click() }
-    } else {
-      const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true, filter, ...(simple?{width:spec.width,height:spec.height,style:captureStyle}:{}) })
-      const dataUrl = await fitDataUrl(raw, spec.width, spec.height, background, attribution.compact)
-      if (format === 'png') {
-        const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.png`; anchor.click()
-      } else {
-        const pptx = new PptxGenJS()
-        pptx.author = 'BioScene Engine'; pptx.subject = sceneTitle; pptx.title = sceneTitle; pptx.company = 'BioScene Engine'
-        pptx.defineLayout({ name: 'BIOSCENE_SQUARE', width: 10, height: 10 })
-        pptx.layout = spec.layout
-        const slide = pptx.addSlide(); slide.background = { color: background?.replace('#', '') ?? 'FFFFFF', transparency: background ? 0 : 100 }
-        const size = spec.layout === 'LAYOUT_WIDE' ? { w: 13.333, h: 7.5 } : spec.layout === 'LAYOUT_4X3' ? { w: 10, h: 7.5 } : { w: 10, h: 10 }
-        slide.addImage({ data: dataUrl, x: 0, y: 0, w: size.w, h: size.h })
-        await pptx.writeFile({ fileName: `bioscene-${templateId}-${exportPreset}.pptx` })
+  const loadJson = useCallback(
+    async (file: File) => {
+      try {
+        const parsed = parseSceneFile(JSON.parse(await file.text()))
+        if (!parsed) throw new Error('Invalid scene schema')
+        applySceneState(parsed)
+        setNotice(`${file.name} 파일이 복원되었습니다.`)
+      } catch {
+        setNotice('유효한 BioScene JSON 파일이 아닙니다.')
       }
-    }
-    if (attribution.full) downloadText(`bioscene-${templateId}-ATTRIBUTIONS.txt`, attribution.full, 'text/plain')
-    setNotice(`${format.toUpperCase()} exported with ${exportPreset} preset`)
-    } catch (error) { setNotice(`${format.toUpperCase()} export failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-    finally { restorePaint?.() }
-  }, [exportPreset, nodes, edges, currentScene, simple, sceneTitle, stylePreset, templateId, visualizationProfile.sceneType, workspace])
+    },
+    [applySceneState],
+  )
+
+  const exportFigure = useCallback(
+    async (format: 'png' | 'svg' | 'pptx' | 'package') => {
+      const target = flowRef.current?.querySelector('.react-flow__viewport') as HTMLElement | null
+      if (!target) return
+      let restorePaint: (() => void) | undefined
+      try {
+        setSelectedNodeId(undefined)
+        setSelectedEdgeId(undefined)
+        setNodes((items) => items.map((n) => ({ ...n, selected: false })))
+        setEdges((items) => items.map((e) => ({ ...e, selected: false })))
+        await instanceRef.current?.fitView({ padding: 0.12, duration: 0 })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        assertVisibleBlocksForCapture(
+          target,
+          edges
+            .filter(
+              (edge) =>
+                edge.data?.interaction === 'BLOCK' &&
+                !edge.hidden &&
+                !instanceRef.current?.getNode(edge.source)?.hidden &&
+                !instanceRef.current?.getNode(edge.target)?.hidden,
+            )
+            .map((edge) => edge.id),
+        )
+        const spec = exportSpecs[exportPreset]
+        const background = exportPreset === 'transparent' ? undefined : styleBackground[stylePreset]
+        const attribution = assetAttribution(nodes)
+        const filter = (element: HTMLElement) => element.dataset?.exportExclude !== 'true'
+        const bounds = instanceRef.current?.getNodesBounds(nodes.filter((n) => !n.hidden))
+        const zoom = bounds ? Math.min((spec.width - 140) / Math.max(1, bounds.width), (spec.height - 140) / Math.max(1, bounds.height)) : 1
+        const captureStyle = bounds
+          ? {
+              transform: `translate(${(spec.width - bounds.width * zoom) / 2 - bounds.x * zoom}px, ${(spec.height - bounds.height * zoom) / 2 - bounds.y * zoom}px) scale(${zoom})`,
+              transformOrigin: '0 0',
+            }
+          : undefined
+        restorePaint = inlineSvgPaintForCapture(target)
+        if (format === 'svg' || format === 'package') {
+          const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height, filter, style: captureStyle })
+          const dataUrl = addSvgCredit(rawSvg, attribution.compact, spec.width, spec.height)
+          if (format === 'package') {
+            const zip = new JSZip()
+            zip.file('scene.svg', decodeURIComponent(dataUrl.slice(dataUrl.indexOf(',') + 1)))
+            zip.file('scene.json', JSON.stringify(currentScene, null, 2))
+            zip.file(
+              'scene_prompt.md',
+              `# ${sceneTitle}\n\nBeautify this scientific blueprint. Preserve every molecule, label, compartment, connection and inhibition mark. Do not infer extra biology.\n\nObjects:\n${nodes.map((n) => `- ${n.data.label} (${n.data.kind}, ${n.data.compartment})`).join('\n')}\n\nRelationships:\n${edges.map((e) => `- ${blueprintRelationship(e, nodes, edges)}`).join('\n')}\n\n${attribution.full}`,
+            )
+            const blob = await zip.generateAsync({ type: 'blob' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = 'bioscene-ai-blueprint.zip'
+            a.click()
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+          } else {
+            const anchor = document.createElement('a')
+            anchor.href = dataUrl
+            anchor.download = `bioscene-${exportPreset}.svg`
+            anchor.click()
+          }
+        } else {
+          const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true, filter, width: spec.width, height: spec.height, style: captureStyle })
+          const dataUrl = await fitDataUrl(raw, spec.width, spec.height, background, attribution.compact)
+          if (format === 'png') {
+            const anchor = document.createElement('a')
+            anchor.href = dataUrl
+            anchor.download = `bioscene-${exportPreset}.png`
+            anchor.click()
+          } else {
+            const pptx = new PptxGenJS()
+            pptx.author = 'BioScene Engine'
+            pptx.subject = sceneTitle
+            pptx.title = sceneTitle
+            pptx.defineLayout({ name: 'BIOSCENE_SQUARE', width: 10, height: 10 })
+            pptx.layout = spec.layout
+            const slide = pptx.addSlide()
+            slide.background = { color: background?.replace('#', '') ?? 'FFFFFF', transparency: background ? 0 : 100 }
+            const size = spec.layout === 'LAYOUT_WIDE' ? { w: 13.333, h: 7.5 } : spec.layout === 'LAYOUT_4X3' ? { w: 10, h: 7.5 } : { w: 10, h: 10 }
+            slide.addImage({ data: dataUrl, x: 0, y: 0, w: size.w, h: size.h })
+            await pptx.writeFile({ fileName: `bioscene-${exportPreset}.pptx` })
+          }
+        }
+        setNotice(`${format.toUpperCase()} 파일 내보내기가 완료되었습니다.`)
+      } catch (error) {
+        setNotice(`내보내기 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+      } finally {
+        restorePaint?.()
+      }
+    },
+    [currentScene, edges, exportPreset, nodes, sceneTitle, stylePreset],
+  )
 
   const createSnapshot = useCallback(() => {
-    const next: SceneRevision = { id: uid('revision'), label: `Revision ${revisions.length + 1}`, createdAt: new Date().toISOString(), scene: JSON.parse(JSON.stringify(currentScene)) as SceneFile }
-    setRevisions((items) => [next, ...items].slice(0, 5)); setNotice(`${next.label} saved`)
+    const next: SceneRevision = {
+      id: uid('revision'),
+      label: `스냅샷 ${revisions.length + 1}`,
+      createdAt: new Date().toISOString(),
+      scene: JSON.parse(JSON.stringify(currentScene)) as SceneFile,
+    }
+    setRevisions((items) => [next, ...items].slice(0, 5))
+    setNotice(`${next.label} 저장됨`)
   }, [currentScene, revisions.length])
 
-  const attachLiterature = useCallback((literatureId: string) => {
-    const record = literature.find((item) => item.id === literatureId)
-    if (!selectedEdgeId || !record) return
-    setEdges((items) => items.map((edge) => {
-      if (edge.id !== selectedEdgeId) return edge
-      const evidence = edge.data?.evidence ?? { status: 'needs-review' as const, citation: '' }
-      const literatureIds = Array.from(new Set([...(evidence.literatureIds ?? []), literatureId]))
-      return { ...edge, data: { ...(edge.data ?? { interaction: 'BIND' }), evidence: { ...evidence, literatureIds, citation: evidence.citation || record.title, url: evidence.url || record.url } } }
-    }))
-    setNotice(`Literature attached to ${selectedEdgeId}`)
-  }, [literature, selectedEdgeId])
+  const restoreRevision = useCallback(
+    (revision: SceneRevision) => {
+      applySceneState(revision.scene)
+      setShowProductionPanel(false)
+      setNotice(`${revision.label} 복원됨`)
+    },
+    [applySceneState],
+  )
+
+  const alignSelection = useCallback(
+    (action: AlignmentAction) => {
+      const selectedIds = new Set(alignmentNodeIds.filter((id) => nodes.find((node) => node.id === id)?.data.kind !== 'cell'))
+      if (selectedIds.size < 2) {
+        setNotice('Shift+클릭으로 2개 이상의 분자를 선택한 뒤 정렬하세요.')
+        return
+      }
+      const selected = nodes.filter((node) => selectedIds.has(node.id))
+      const width = (node: BioNodeType) => node.measured?.width ?? node.width ?? 96
+      const height = (node: BioNodeType) => node.measured?.height ?? node.height ?? 76
+      const left = Math.min(...selected.map((node) => node.position.x))
+      const right = Math.max(...selected.map((node) => node.position.x + width(node)))
+      const top = Math.min(...selected.map((node) => node.position.y))
+      const bottom = Math.max(...selected.map((node) => node.position.y + height(node)))
+      setNodes((items) =>
+        items.map((node) => {
+          if (!selectedIds.has(node.id)) return node
+          let x = node.position.x
+          let y = node.position.y
+          if (action === 'left') x = left
+          if (action === 'center-x') x = (left + right - width(node)) / 2
+          if (action === 'top') y = top
+          if (action === 'center-y') y = (top + bottom - height(node)) / 2
+          return { ...node, position: { x, y } }
+        }),
+      )
+      setNotice(`${selected.length}개 개체 정렬 완료`)
+    },
+    [alignmentNodeIds, nodes],
+  )
+
+  const attachLiterature = useCallback(
+    (literatureId: string) => {
+      const record = literature.find((item) => item.id === literatureId)
+      if (!selectedEdgeId || !record) return
+      setEdges((items) =>
+        items.map((edge) => {
+          if (edge.id !== selectedEdgeId) return edge
+          const evidence = edge.data?.evidence ?? { status: 'needs-review' as const, citation: '' }
+          const literatureIds = Array.from(new Set([...(evidence.literatureIds ?? []), literatureId]))
+          return {
+            ...edge,
+            data: { ...(edge.data ?? { interaction: 'BIND' }), evidence: { ...evidence, literatureIds, citation: evidence.citation || record.title, url: evidence.url || record.url } },
+          }
+        }),
+      )
+    },
+    [literature, selectedEdgeId],
+  )
 
   const updateLiterature = useCallback((records: LiteratureRecord[]) => {
     const kept = new Set(records.map((record) => record.id))
     setLiterature(records)
-    setEdges((items) => items.map((edge) => edge.data?.evidence ? { ...edge, data: { ...edge.data, evidence: { ...edge.data.evidence, literatureIds: edge.data.evidence.literatureIds?.filter((id) => kept.has(id)) } } } : edge))
+    setEdges((items) =>
+      items.map((edge) =>
+        edge.data?.evidence ? { ...edge, data: { ...edge.data, evidence: { ...edge.data.evidence, literatureIds: edge.data.evidence.literatureIds?.filter((id) => kept.has(id)) } } } : edge,
+      ),
+    )
   }, [])
 
-  const enrichLiteratureRecord = useCallback(async (id: string) => {
-    const record = literature.find((item) => item.id === id)
-    if (!record || !room.endpoint) { setNotice('Configure a production backend before enriching metadata'); return }
-    setEnrichingLiteratureId(id)
-    try {
-      const patch = await enrichLiterature(room, roomToken, record)
-      setLiterature((items) => items.map((item) => item.id === id ? { ...item, ...patch } : item))
-      setNotice(`Metadata enriched for ${patch.title}`)
-    } catch (error) {
-      setLiterature((items) => items.map((item) => item.id === id ? { ...item, metadataStatus: 'failed' } : item))
-      setNotice(`Metadata enrichment failed: ${error instanceof Error ? error.message : 'unknown error'}`)
-    } finally { setEnrichingLiteratureId(undefined) }
-  }, [literature, room, roomToken])
+  const enrichLiteratureRecord = useCallback(
+    async (id: string) => {
+      const record = literature.find((item) => item.id === id)
+      if (!record || !room.endpoint) return
+      setEnrichingLiteratureId(id)
+      try {
+        const patch = await enrichLiterature(room, roomToken, record)
+        setLiterature((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)))
+      } catch {
+        setLiterature((items) => items.map((item) => (item.id === id ? { ...item, metadataStatus: 'failed' } : item)))
+      } finally {
+        setEnrichingLiteratureId(undefined)
+      }
+    },
+    [literature, room, roomToken],
+  )
 
   const selectedCell = selectedNode?.data.kind === 'cell' ? selectedNode : nodes.find((node) => node.id === selectedNode?.parentId)
+
   const saveTissueModule = useCallback(() => {
     if (!selectedCell) return
     const ids = new Set([selectedCell.id])
     let changed = true
-    while (changed) { changed = false; for (const node of nodes) if (node.parentId && ids.has(node.parentId) && !ids.has(node.id)) { ids.add(node.id); changed = true } }
+    while (changed) {
+      changed = false
+      for (const node of nodes) {
+        if (node.parentId && ids.has(node.parentId) && !ids.has(node.id)) {
+          ids.add(node.id)
+          changed = true
+        }
+      }
+    }
     const moduleNodes = nodes.filter((node) => ids.has(node.id))
     const moduleEdges = edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target))
-    const literatureIds = new Set(moduleEdges.flatMap((edge) => edge.data?.evidence?.literatureIds ?? []))
     const item: TissueModule = {
-      id: uid('module'), name: selectedCell.data.label, description: `Reusable ${selectedCell.data.label} network`, createdAt: new Date().toISOString(),
-      nodes: JSON.parse(JSON.stringify(moduleNodes)), edges: JSON.parse(JSON.stringify(moduleEdges)), literature: JSON.parse(JSON.stringify(literature.filter((record) => literatureIds.has(record.id)))),
+      id: uid('module'),
+      name: selectedCell.data.label,
+      description: `Reusable ${selectedCell.data.label} network`,
+      createdAt: new Date().toISOString(),
+      nodes: JSON.parse(JSON.stringify(moduleNodes)),
+      edges: JSON.parse(JSON.stringify(moduleEdges)),
+      literature: [],
     }
-    setModules((items) => [item, ...items]); setNotice(`${item.name} saved as tissue module`)
-  }, [edges, literature, nodes, selectedCell])
+    setModules((items) => [item, ...items])
+  }, [edges, nodes, selectedCell])
 
-  const insertTissueModule = useCallback((item: TissueModule) => {
-    const root = item.nodes.find((node) => node.data.kind === 'cell' && !node.parentId)
-    if (!root) return
-    const idMap = new Map(item.nodes.map((node) => [node.id, uid('module-node')]))
-    const rightEdge = Math.max(0, ...nodes.filter((node) => node.data.kind === 'cell').map((node) => node.position.x + (typeof node.style?.width === 'number' ? node.style.width : Number.parseFloat(String(node.style?.width ?? 620)) || 620)))
-    const nextNodes = item.nodes.map((node) => ({ ...JSON.parse(JSON.stringify(node)), id: idMap.get(node.id)!, parentId: node.parentId ? idMap.get(node.parentId) : undefined, selected: false, data: { ...node.data, panelId: targetPanel }, position: node.id === root.id ? { x: rightEdge + 80, y: root.position.y } : { ...node.position } })) as BioNodeType[]
-    const nextEdges = item.edges.map((edge) => ({ ...JSON.parse(JSON.stringify(edge)), id: uid('edge'), source: idMap.get(edge.source)!, target: idMap.get(edge.target)!, selected: false })) as BioEdge[]
-    setNodes((current) => [...current, ...nextNodes]); setEdges((current) => [...current, ...nextEdges]); setLiterature((current) => [...current, ...(item.literature ?? []).filter((record) => !current.some((existing) => existing.id === record.id))]); setShowModulePanel(false); setNotice(`${item.name} module inserted`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .08, duration: 500 }))
-  }, [nodes, targetPanel])
+  const insertTissueModule = useCallback(
+    (item: TissueModule) => {
+      const root = item.nodes.find((node) => node.data.kind === 'cell' && !node.parentId)
+      if (!root) return
+      const idMap = new Map(item.nodes.map((node) => [node.id, uid('module-node')]))
+      const rightEdge = Math.max(0, ...nodes.filter((node) => node.data.kind === 'cell').map((node) => node.position.x + Number(node.style?.width ?? 620)))
+      const nextNodes = item.nodes.map((node) => ({
+        ...JSON.parse(JSON.stringify(node)),
+        id: idMap.get(node.id)!,
+        parentId: node.parentId ? idMap.get(node.parentId) : undefined,
+        selected: false,
+        data: { ...node.data, panelId: targetPanel },
+        position: node.id === root.id ? { x: rightEdge + 80, y: root.position.y } : { ...node.position },
+      })) as BioNodeType[]
+      const nextEdges = item.edges.map((edge) => ({
+        ...JSON.parse(JSON.stringify(edge)),
+        id: uid('edge'),
+        source: idMap.get(edge.source)!,
+        target: idMap.get(edge.target)!,
+        selected: false,
+      })) as BioEdge[]
+      setNodes((current) => [...current, ...nextNodes])
+      setEdges((current) => [...current, ...nextEdges])
+      setShowModulePanel(false)
+    },
+    [nodes, targetPanel],
+  )
 
-  const syncRoom = useCallback(async (direction: 'push' | 'pull') => {
-    if (!room.endpoint || !room.roomId) return
-    setIsSyncing(true)
-    try {
-      if (direction === 'push') {
-        const syncedAt = new Date().toISOString()
-        const event = { id: uid('activity'), actor: collaboration.participants[0] ?? 'Local user', action: `Pushed to room ${room.roomId}`, createdAt: syncedAt }
-        const nextCollaboration = { ...collaboration, activity: [event, ...collaboration.activity].slice(0, 50) }
-        const result = await pushRoom(room, roomToken, { ...currentScene, collaboration: nextCollaboration })
-        setCollaboration(nextCollaboration); setRoom((value) => ({ ...value, endpoint: result.endpoint, revision: result.revision, lastSyncedAt: syncedAt }))
-      } else {
-        if (!window.confirm('Pulling will replace the current scene. A local snapshot will be created first. Continue?')) return
-        createSnapshot()
-        const result = await pullRoom(room, roomToken)
-        const scene = result.scene
-        setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature)
-        const syncedAt = new Date().toISOString(); setCollaboration({ ...scene.collaboration, activity: [{ id: uid('activity'), actor: scene.collaboration.participants[0] ?? 'Local user', action: `Pulled revision ${result.revision ?? 'unversioned'} from room ${room.roomId}`, createdAt: syncedAt }, ...scene.collaboration.activity].slice(0, 50) }); setRoom((value) => ({ ...value, endpoint: result.endpoint, revision: result.revision, lastSyncedAt: syncedAt }))
+  const syncRoom = useCallback(
+    async (direction: 'push' | 'pull') => {
+      if (!room.endpoint || !room.roomId) return
+      setIsSyncing(true)
+      try {
+        if (direction === 'push') {
+          const syncedAt = new Date().toISOString()
+          const result = await pushRoom(room, roomToken, currentScene)
+          setRoom((value) => ({ ...value, endpoint: result.endpoint, revision: result.revision, lastSyncedAt: syncedAt }))
+        } else {
+          createSnapshot()
+          const result = await pullRoom(room, roomToken)
+          applySceneState(result.scene)
+          setRoom((value) => ({ ...value, endpoint: result.endpoint, revision: result.revision, lastSyncedAt: new Date().toISOString() }))
+        }
+        setNotice(`협업 룸 ${direction === 'push' ? '업로드' : '가져오기'} 완료`)
+      } catch (error) {
+        setNotice(error instanceof BackendConflictError ? error.message : `동기화 실패: ${error instanceof Error ? error.message : '알 수 없는 오류'}`)
+      } finally {
+        setIsSyncing(false)
       }
-      setNotice(`Room ${direction} completed`)
-    } catch (error) { setNotice(error instanceof BackendConflictError ? error.message : `Room sync failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-    finally { setIsSyncing(false) }
-  }, [collaboration, createSnapshot, currentScene, room, roomToken])
+    },
+    [applySceneState, createSnapshot, currentScene, room, roomToken],
+  )
 
   const exportReviewPackage = useCallback(async () => {
     const target = flowRef.current?.querySelector('.react-flow__viewport') as HTMLElement | null
     if (!target) return
     try {
-    setSelectedNodeId(undefined); setSelectedEdgeId(undefined); await instanceRef.current?.fitView({ padding: .14, duration: 0 })
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    const figure = await toPng(target, { backgroundColor: styleBackground[stylePreset], pixelRatio: 2, cacheBust: true })
-    const zip = new JSZip()
-    zip.file('scene.json', JSON.stringify(currentScene, null, 2))
-    zip.file('figure.png', figure.split(',')[1], { base64: true })
-    const reviewText = `# BioScene scientific review\n\nTitle: ${sceneTitle}\nStatus: ${review.status}\nReviewers: ${review.reviewers.join(', ') || 'Unassigned'}\nUpdated: ${review.updatedAt}\n\n## Review notes\n\n${review.notes || 'No review notes.'}\n\n## Package contents\n\n- figure.png: rendered scene\n- scene.json: editable BioScene v0.10 scene\n- evidence.csv: interaction evidence ledger\n- literature.json: appraised literature library\n- collaboration.json: participants, comments, and activity\n- PROVENANCE.csv: explicit, inferred, and template entity provenance\n- ATTRIBUTIONS.txt: third-party asset credits (when applicable)\n`
-    zip.file('REVIEW.md', reviewText)
-    const csv = ['edge_id,interaction,source,target,status,citation,url,note,literature_ids,literature_titles,mean_score', ...edges.map((edge) => { const records = (edge.data?.evidence?.literatureIds ?? []).map((id) => literature.find((record) => record.id === id)).filter((record): record is LiteratureRecord => !!record); return [edge.id, edge.data?.interaction, edge.source, edge.target, edge.data?.evidence?.status ?? 'needs-review', edge.data?.evidence?.citation ?? '', edge.data?.evidence?.url ?? '', edge.data?.evidence?.note ?? '', records.map((record) => record.id).join(';'), records.map((record) => record.title).join(';'), records.length ? Math.round(records.reduce((sum, record) => sum + record.score, 0) / records.length) : ''].map(csvCell).join(',') })].join('\n')
-    zip.file('evidence.csv', csv)
-    zip.file('literature.json', JSON.stringify(literature, null, 2))
-    zip.file('collaboration.json', JSON.stringify(collaboration, null, 2))
-    const attribution = assetAttribution(nodes)
-    zip.file('ATTRIBUTIONS.txt', attribution.full || 'No third-party visual assets are bound in this scene.')
-    const provenanceCsv = ['node_id,label,kind,provenance,structure_source,structure_model,structure_url,mean_plddt', ...nodes.filter((node) => node.data.kind !== 'cell').map((node) => { const trace=node.data.structuralModel?.structureTrace; return [node.id,node.data.label,node.data.kind,node.data.provenance??'template',trace?.source??'',trace?.modelId??'',trace?.entryUrl??'',trace?.meanConfidence??''].map(csvCell).join(',') })].join('\n')
-    zip.file('PROVENANCE.csv', provenanceCsv)
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-    const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `bioscene-${templateId}-review.zip`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-    setNotice('Review package exported with figure, scene, notes, and evidence ledger')
-    } catch (error) { setNotice(`Review package export failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-  }, [collaboration, currentScene, edges, literature, nodes, review, sceneTitle, stylePreset, templateId])
-
-  const restoreRevision = useCallback((revision: SceneRevision) => {
-    const scene = revision.scene; setNodes(scene.nodes); setEdges(scene.edges); setMode(scene.constraintMode); setTemplateId(scene.templateId ?? DEFAULT_TEMPLATE_ID); setSceneTitle(scene.title); setSceneCreatedAt(scene.createdAt); setMechanism(scene.mechanism); setStylePreset(scene.stylePreset); setReview(scene.review); setLiterature(scene.literature); setCollaboration(scene.collaboration); setShowProductionPanel(false); setNotice(`${revision.label} restored`)
-    requestAnimationFrame(() => instanceRef.current?.fitView({ padding: .12, duration: 450 }))
-  }, [])
-
-  const alignSelection = useCallback((action: AlignmentAction) => {
-    const selectedIds = new Set(alignmentNodeIds.filter((id) => nodes.find((node) => node.id === id)?.data.kind !== 'cell'))
-    nodes.filter((node) => node.selected && node.data.kind !== 'cell').forEach((node) => selectedIds.add(node.id))
-    if (selectedNodeId && nodes.find((node) => node.id === selectedNodeId)?.data.kind !== 'cell') selectedIds.add(selectedNodeId)
-    const selected = nodes.filter((node) => selectedIds.has(node.id))
-    if (selected.length < 2 || new Set(selected.map((node) => node.parentId)).size > 1) { setNotice('Select 2+ objects in the same panel (Shift-click)'); return }
-    if (action.startsWith('distribute') && selected.length < 3) { setNotice('Distribution needs 3+ selected objects'); return }
-    const width = (node: BioNodeType) => node.measured?.width ?? node.width ?? 150
-    const height = (node: BioNodeType) => node.measured?.height ?? node.height ?? 56
-    const left = Math.min(...selected.map((node) => node.position.x)); const right = Math.max(...selected.map((node) => node.position.x + width(node)))
-    const top = Math.min(...selected.map((node) => node.position.y)); const bottom = Math.max(...selected.map((node) => node.position.y + height(node)))
-    const orderedX = [...selected].sort((a, b) => a.position.x - b.position.x); const orderedY = [...selected].sort((a, b) => a.position.y - b.position.y)
-    const xStep = selected.length > 1 ? (right - width(orderedX.at(-1)!) / 2 - (left + width(orderedX[0]) / 2)) / (selected.length - 1) : 0
-    const yStep = selected.length > 1 ? (bottom - height(orderedY.at(-1)!) / 2 - (top + height(orderedY[0]) / 2)) / (selected.length - 1) : 0
-    const xRanks = new Map(orderedX.map((node, index) => [node.id, index])); const yRanks = new Map(orderedY.map((node, index) => [node.id, index]))
-    setNodes((items) => items.map((node) => {
-      if (!selectedIds.has(node.id)) return node
-      let x = node.position.x; let y = node.position.y
-      if (action === 'left') x = left; if (action === 'center-x') x = (left + right - width(node)) / 2; if (action === 'right') x = right - width(node)
-      if (action === 'top') y = top; if (action === 'center-y') y = (top + bottom - height(node)) / 2; if (action === 'bottom') y = bottom - height(node)
-      if (action === 'distribute-x') x = left + width(orderedX[0]) / 2 + (xRanks.get(node.id) ?? 0) * xStep - width(node) / 2
-      if (action === 'distribute-y') y = top + height(orderedY[0]) / 2 + (yRanks.get(node.id) ?? 0) * yStep - height(node) / 2
-      return constrainNode({ ...node, position: { x, y } }, mode, items)
-    }))
-    setNotice(`${action} applied to ${selected.length} objects`)
-  }, [alignmentNodeIds, mode, nodes, selectedNodeId])
-
-  const toggleMode = useCallback(() => {
-    setMode((current) => {
-      const next = current === 'biological' ? 'free' : 'biological'
-      if (next === 'biological') setNodes((items) => items.map((item) => constrainNode(item, next, items)))
-      setNotice(next === 'biological' ? 'Biological constraints enabled' : 'Free Edit enabled — warnings only')
-      return next
-    })
-  }, [])
+      setSelectedNodeId(undefined)
+      setSelectedEdgeId(undefined)
+      await instanceRef.current?.fitView({ padding: 0.14, duration: 0 })
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const figure = await toPng(target, { backgroundColor: styleBackground[stylePreset], pixelRatio: 2, cacheBust: true })
+      const zip = new JSZip()
+      zip.file('scene.json', JSON.stringify(currentScene, null, 2))
+      zip.file('figure.png', figure.split(',')[1], { base64: true })
+      zip.file('REVIEW.md', `# ${sceneTitle}\nStatus: ${review.status}\n\n${review.notes}`)
+      const csv = ['edge_id,interaction,source,target', ...edges.map((e) => [e.id, e.data?.interaction, e.source, e.target].map(csvCell).join(','))].join('\n')
+      zip.file('evidence.csv', csv)
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `bioscene-${templateId}-review.zip`
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setNotice('리뷰 패키지 내보내기 실패')
+    }
+  }, [currentScene, edges, review.notes, review.status, sceneTitle, stylePreset, templateId])
 
   const warnings = useMemo(() => biologicalWarnings(nodes, edges), [edges, nodes])
-  const counts = useMemo(() => ({
-    objects: nodes.filter((node) => node.data.kind !== 'cell' && !node.hidden).length,
-    interactions: edges.filter((edge) => !edge.hidden).length,
-    warnings: warnings.length,
-  }), [edges, nodes, warnings.length])
 
-  function openSimpleBuilder(fresh:boolean) { setWelcome(false);setSimple(true);setSimplePanel('cell');setNewSimpleFigure(fresh);setSimpleRelation(undefined);setRelationSource(undefined) }
-  function generateSimple(drafts:CellDraft[]) {
-    if(newSimpleFigure&&nodes.length&&!window.confirm('Create a new MoA? Your current figure will be kept as a revision and in Undo.'))return
-    if(newSimpleFigure&&nodes.length)createSnapshot()
-    const generated=generateCells(drafts)
-    const all=newSimpleFigure?generated:layoutSimpleCells([...nodes,...generated])
-    setNodes(all);if(newSimpleFigure){setEdges([]);setMechanism(undefined);setLiterature([]);setCollaboration(emptyCollaboration());setReview({status:'draft',reviewers:[],notes:'',updatedAt:new Date().toISOString()});setViews([]);setActiveViewId(undefined);setSceneCreatedAt(new Date().toISOString())}
-    setMoleculeLibrary(items=>[...items,...drafts.flatMap(d=>d.proteins.map(p=>p.molecule)).filter((m,i,a)=>!items.some(x=>x.id===m.id)&&a.findIndex(x=>x.id===m.id)===i)])
-    setSceneTitle(drafts.map(d=>d.name).join(' + ')+' MoA');setVisualizationProfile({...defaultVisualizationProfile,detailLevel:4});setSimpleScope(all.filter(n=>n.data.kind==='cell').length>1?'Cell-Cell':'Cell');setSimplePanel(undefined);setSelectedNodeId(undefined);setSelectedEdgeId(undefined);setNotice('Cell ready. Add a drug or ligand, then choose a relationship.');window.setTimeout(()=>instanceRef.current?.fitView({padding:.15,duration:300}),80)
-  }
-  function connectSimple(source:string,targets:string[],relation:SimpleRelation,blockedEdgeId?:string) {
-    try {let next=nodes;const added:BioEdge[]=[];for(const target of targets){const result=simpleConnection(next,source,target,relation,blockedEdgeId);next=result.nodes;added.push(result.edge)}setNodes(next);setEdges(items=>[...items,...added]);setSimpleRelation(undefined);setRelationSource(undefined);setNotice(`${relation} relationship added`)}catch(error){setNotice(error instanceof Error?error.message:'Could not connect these molecules')}
-  }
-  function clickSimpleNode(id:string) {
-    if(!simpleRelation){selectObject(id);return}
-    if(!relationSource){setRelationSource(id);setNotice(`${simpleRelation}: choose the target molecule${simpleRelation==='Block'?' or interaction':''}.`)}else connectSimple(relationSource,[id],simpleRelation)
-  }
-  function switchEditor(nextSimple:boolean) {setSimple(nextSimple);setSimplePanel(undefined);setSimpleRelation(undefined);setRelationSource(undefined);setDrawingTool('select');setContextTarget(undefined);setShowMoleculeSetup(false);setShowSceneSettings(false);setShowAssetBrowser(false);setShowProductionPanel(false);setShowReviewPanel(false);setShowLiteraturePanel(false);setShowCollaborationPanel(false);setShowModulePanel(false);setShowWorkspaceSetup(false);window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}
+  // Palette Handlers
+  const handleAddCatalogProtein = useCallback(
+    (item: CatalogItem, count: number) => {
+      setMoleculeLibrary((curr) => (curr.some((m) => m.id === item.molecule.id) ? curr : [...curr, item.molecule]))
+      const result = placeCatalogMolecule(nodes, item.molecule, {
+        targetCellId: selectedCell?.id,
+        category: item.category,
+        customColor: item.customColor,
+        count,
+      })
+      const lastId = result.createdIds.at(-1)
+      setNodes(result.nodes.map((n) => ({ ...n, selected: n.id === lastId })))
+      setSelectedNodeId(lastId)
+      setSelectedEdgeId(undefined)
+      setNotice(`${item.name} (${count}개) 배치됨 — 드래그해 위치를 다듬거나 바로 연결하세요.`)
+      window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.12, duration: 260 }), 50)
+    },
+    [nodes, selectedCell?.id],
+  )
+
+  const handleAddUniProtMolecule = useCallback(
+    (molecule: MoleculeDefinition, count: number) => {
+      setMoleculeLibrary((curr) => (curr.some((m) => m.id === molecule.id) ? curr.map((m) => (m.id === molecule.id ? molecule : m)) : [...curr, molecule]))
+      const category =
+        molecule.topology === 'nuclear'
+          ? 'transcription'
+          : molecule.topology === 'intracellular'
+            ? 'signaling'
+            : molecule.topology === 'secreted'
+              ? 'cytokine'
+              : 'receptor'
+      const result = placeCatalogMolecule(nodes, molecule, { targetCellId: selectedCell?.id, category, count })
+      const lastId = result.createdIds.at(-1)
+      setNodes(result.nodes.map((n) => ({ ...n, selected: n.id === lastId })))
+      setSelectedNodeId(lastId)
+      setSelectedEdgeId(undefined)
+      setNotice(`${molecule.name} (UniProt ${molecule.uniprotAccession ?? ''}) 배치됨`)
+    },
+    [nodes, selectedCell?.id],
+  )
+
+  const handleAddTherapeutic = useCallback(
+    (opts: {
+      molecule: MoleculeDefinition
+      nodeOverrides: Partial<BioNodeType['data']>
+      connectTargetIds?: string[]
+      interaction?: InteractionType
+    }) => {
+      setMoleculeLibrary((curr) => [...curr, opts.molecule])
+      const added = addSimpleDrug(nodes, opts.molecule, selectedCell?.id)
+      let workingNodes = added.nodes.map((n) =>
+        n.id === added.id ? { ...n, data: { ...n.data, ...opts.nodeOverrides, showName: true } } : n,
+      )
+
+      // Smart positioning right above/near target molecule so visual layout is immediately clean!
+      const primaryTarget = opts.connectTargetIds?.[0] ? workingNodes.find((n) => n.id === opts.connectTargetIds![0]) : undefined
+      if (primaryTarget && (!opts.connectTargetIds || opts.connectTargetIds.length === 1)) {
+        workingNodes = workingNodes.map((n) => {
+          if (n.id !== added.id) return n
+          const sameParent = n.parentId === primaryTarget.parentId
+          return {
+            ...n,
+            parentId: primaryTarget.parentId,
+            ...(primaryTarget.parentId ? { extent: 'parent' as const } : {}),
+            position: sameParent
+              ? {
+                  x: primaryTarget.position.x + (primaryTarget.data.kind === 'ligand' ? -135 : 0),
+                  y: Math.max(24, primaryTarget.position.y - (primaryTarget.data.kind === 'ligand' ? 6 : 124)),
+                }
+              : n.position,
+            data: { ...n.data, positionMode: 'manual' },
+          }
+        })
+      }
+
+      const createdEdges: BioEdge[] = []
+      if (opts.interaction && opts.connectTargetIds?.length) {
+        for (const targetId of opts.connectTargetIds) {
+          try {
+            const connected = connectStudioNodes(workingNodes, added.id, targetId, opts.interaction)
+            workingNodes = connected.nodes
+            createdEdges.push(connected.edge)
+          } catch {
+            /* skip incompatible */
+          }
+        }
+      }
+
+      setNodes(workingNodes.map((n) => ({ ...n, selected: n.id === added.id })))
+      if (createdEdges.length) setEdges((curr) => [...curr, ...createdEdges])
+      setSelectedNodeId(added.id)
+      setSelectedEdgeId(undefined)
+      setNotice(
+        createdEdges.length
+          ? `${opts.molecule.name} 배치 및 ${opts.interaction} 연결 완료!`
+          : `${opts.molecule.name} 배치 완료`,
+      )
+      window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.12, duration: 260 }), 50)
+    },
+    [nodes, selectedCell?.id],
+  )
+
+  const handleInsertSvgAsset = useCallback(
+    (asset: AssetReference, applyToSelected: boolean) => {
+      if (applyToSelected && selectedNodeId) {
+        attachAsset(asset)
+        return
+      }
+      const id = uid('bio')
+      const parent = selectedCell
+      const node: BioNodeType = {
+        id,
+        type: 'bio',
+        ...(parent ? { parentId: parent.id, extent: 'parent' as const } : {}),
+        position: parent ? { x: 180, y: 120 } : { x: 320, y: 200 },
+        selected: true,
+        data: createBioData('ligand', asset.name, { asset, showName: true, positionMode: 'manual', visibility: 'visible' }),
+      }
+      setNodes((curr) => [...curr.map((n) => ({ ...n, selected: false })), node])
+      setSelectedNodeId(id)
+      setSelectedEdgeId(undefined)
+      setNotice(`${asset.name} SVG 개체가 캔버스에 추가되었습니다.`)
+    },
+    [attachAsset, selectedCell, selectedNodeId],
+  )
 
   return (
-    <div className={`app-shell ${simple?'simple-mode':''} ${welcome?'welcome-mode':''}`} data-style={simple?'scientific-clean':stylePreset}>
-      <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => {const file=event.target.files?.[0];if(file)void loadJson(file);event.target.value=''}} />
-      {welcome&&<section className="simple-welcome"><div className="welcome-brand"><FlaskConical/> BioScene <small>ENGINE</small></div><span className="eyebrow">SIMPLE MoA</span><h1>What do you want to build?</h1><p>Turn your mechanism into a clear biological blueprint.</p><button className="primary-button welcome-primary" onClick={()=>openSimpleBuilder(true)}>Build a MoA <span>→</span></button><button onClick={()=>{setWelcome(false);setShowMechanismComposer(true)}}>Generate from Description</button><button onClick={()=>fileInput.current?.click()}>Open Existing</button><button onClick={()=>{setWelcome(false);switchEditor(false);createEmptyFigure()}}>Advanced / Blank Canvas</button>{autosavedScene&&<button className="continue-saved" onClick={()=>{setWelcome(false);window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}}>Continue saved figure</button>}<small>Cells → proteins → drug → relationship → export</small></section>}
-      {simple?<header className="simple-topbar"><strong>BioScene <small>Simple MoA</small></strong><button onClick={()=>openSimpleBuilder(true)}>New MoA</button><span className="simple-save-status" role="status">{autosaveStatus==='saved'?'Saved':'Saving…'}</span><button data-testid="undo" disabled={!undoStack.current.length} onClick={undo}>Undo</button><button data-testid="redo" disabled={!redoStack.current.length} onClick={redo}>Redo</button><button data-testid="save-json" onClick={saveJson}>Save</button><button onClick={()=>fileInput.current?.click()}>Load</button><div className="simple-export"><button className="primary-button" disabled={!nodes.length} onClick={()=>exportFigure(simpleExport)}>Export Blueprint</button><select aria-label="Export format" value={simpleExport} onChange={e=>setSimpleExport(e.target.value as typeof simpleExport)}><option value="svg">SVG</option><option value="png">PNG</option><option value="package">AI Beautification Package</option></select></div><button onClick={()=>switchEditor(false)}>Advanced</button></header>:<header className="topbar">
-        <div className="brand">
-          <span className="brand-mark"><FlaskConical size={20} /></span>
-          <span><strong>BioScene</strong><small>ENGINE</small></span>
-        </div>
-        <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.14 · Interactive editor</small></div>
-        <div className="top-actions">
-          <button className="primary-button" onClick={()=>switchEditor(true)}>Simple Mode</button>
-          <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'assets'} onClick={() => setMobilePanel((value) => value === 'assets' ? undefined : 'assets')}>Assets</button>
-          <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'inspector'} onClick={() => setMobilePanel((value) => value === 'inspector' ? undefined : 'inspector')}>Inspector</button>
-          <button className="ghost-button" data-testid="new-figure" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
-          <button className="ghost-button" data-help="현재 semantic biology는 유지하면서 Scene type, Detail level, Abstraction, Layout과 저장된 여러 view를 관리합니다." onClick={() => setShowSceneSettings(true)}><Settings2 size={16}/> Figure settings</button>
-          <button className="ghost-button" data-testid="protein-setup" data-help="그림에 사용할 protein과 proprietary construct의 topology, visual template, functional domains, targets와 자동 생성 port를 정의합니다. Private construct는 외부 데이터베이스로 전송하지 않습니다." onClick={() => openMoleculeBuilder()}><Workflow size={16}/> Molecule builder</button>
-          <button className="ghost-button" data-help="기전 설명을 문장으로 입력하면 인식한 분자·세포·상호작용을 먼저 미리 보여주고, 확인 후 편집 가능한 장면으로 생성합니다. 생성하면 현재 장면과 근거·메모가 교체되므로 확인창이 표시됩니다." onClick={() => setShowMechanismComposer(true)}><Sparkles size={16} /> Generate from MoA</button>
-          <button className="ghost-button icon-only" data-testid="undo" aria-label="Undo" title="Undo (Ctrl+Z)" disabled={!undoStack.current.length} onClick={undo} data-history-version={historyVersion}><Undo2 size={16} /></button>
-          <button className="ghost-button icon-only" data-testid="redo" aria-label="Redo" title="Redo (Ctrl+Y)" disabled={!redoStack.current.length} onClick={redo}><Redo2 size={16} /></button>
-          <button className="ghost-button" onClick={resetScene}><RotateCcw size={16} /> Reset</button>
-          <button className="ghost-button" data-testid="save-json" onClick={saveJson}><Save size={16} /> Save JSON</button>
-          <button className="ghost-button" data-help="논문·발표용 색상과 출력 비율을 고르고 PNG·SVG·PowerPoint로 내보냅니다. 수동 스냅샷을 만들거나 이전 스냅샷으로 복원할 수도 있습니다." onClick={() => setShowProductionPanel(true)}><PanelsTopLeft size={16} /> Production</button>
-          <button className="ghost-button" data-help="PMID·DOI·논문 URL·내부 인용을 등록하고 품질 점수를 매긴 뒤, 선택한 상호작용 선에 근거로 연결합니다." onClick={() => setShowLiteraturePanel(true)}><BookOpen size={16} /> Evidence</button>
-          <button className="ghost-button" data-help="검토 참여자와 댓글을 기록하고, Supabase 계정으로 로그인해 Room ID가 같은 사용자끼리 장면 리비전을 Push/Pull합니다." onClick={() => setShowCollaborationPanel(true)}><Cloud size={16} /> Collaborate</button>
-          <button className={`ghost-button review-${review.status}`} data-help="현재 장면의 검수 상태(draft/in review/approved), 검토자와 과학 검토 메모를 저장합니다. 이 정보는 Scene JSON과 리뷰 ZIP에 포함됩니다." onClick={() => setShowReviewPanel(true)}><ClipboardCheck size={16} /> {review.status}</button>
-          <button className="primary-button" onClick={() => exportFigure('png')}><Download size={16} /> Export PNG</button>
-        </div>
-      </header>}
+    <div className="studio-shell" data-style={stylePreset}>
+      <input
+        ref={fileInput}
+        hidden
+        type="file"
+        accept="application/json,.json"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) void loadJson(file)
+          event.target.value = ''
+        }}
+      />
 
-      {simple?<nav className="simple-toolbar" aria-label="MoA tools"><button className="primary-button" onClick={()=>setSimplePanel(simplePanel==='drug'?undefined:'drug')}>+ Add Drug / Ligand</button>{(['Bind','Signal','Block','Indirect'] as const).map(r=><button key={r} aria-pressed={simpleRelation===r} onClick={()=>{setSimpleRelation(simpleRelation===r?undefined:r);setRelationSource(undefined);setNotice(`${r}: click a source molecule, then a target.`)}}>{r}</button>)}<button onClick={runLayout} disabled={isLayingOut}>Auto Layout</button><label>Simple<input aria-label="Visual detail" type="range" min="1" max="3" value={visualDetail} onChange={e=>setVisualDetail(Number(e.target.value))}/>Detailed</label></nav>:<EditorToolbar tool={drawingTool} continuous={continuousTool} onTool={(tool) => { setDrawingTool(tool); setDraftMembrane(undefined); setNotice(`${tool.replaceAll('_', ' ')} mode`) }} onContinuous={() => setContinuousTool((value) => !value)} onShortcuts={() => setShowShortcuts(true)} />}
-
-      <div className="workspace">
-        <button className={`mobile-panel-shade ${mobilePanel ? 'open' : ''}`} aria-label="Close side panel" onClick={() => setMobilePanel(undefined)} />
-        <div className={`sidebar-shell ${mobilePanel === 'assets' ? 'open' : ''}`}>
-          <button className="mobile-drawer-close" aria-label="Close assets panel" onClick={() => setMobilePanel(undefined)}>×</button>
-          {simple?(simplePanel?<SimpleMoaPanel key={simplePanel} panel={simplePanel} library={moleculeLibrary} nodes={nodes} onGenerate={generateSimple} onDrug={m=>{setMoleculeLibrary(items=>[...items,m]);const result=addSimpleDrug(nodes,m);setNodes(result.nodes.map(n=>({...n,selected:n.id===result.id})));setSelectedNodeId(result.id);setSelectedEdgeId(undefined);setNotice(`${m.name} added. Choose a target connection when ready.`)}} onAdvanced={()=>{switchEditor(false);openMoleculeBuilder()}} onCancel={()=>setSimplePanel(undefined)}/>:<aside className="simple-panel"><h2>Your MoA</h2><p>{sceneTitle}</p><button onClick={()=>openSimpleBuilder(false)}>+ Add cell</button><label>Scene<select aria-label="Simple scene" value={simpleScope} onChange={e=>{setSimpleScope(e.target.value);if(e.target.value==='Cell-Cell')openSimpleBuilder(false);if(e.target.value==='Environment')setShowMechanismComposer(true)}}><option>Cell</option><option>Cell-Cell</option><option>Environment</option></select></label><small>Scene guides your next step; existing objects remain unchanged.</small><button onClick={()=>{const next=treatedComparison(nodes,edges);setNodes(next.nodes);setEdges(next.edges);setNotice('Treated copy created. Edit the copy to show treatment; biology was not inferred.');window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}} disabled={!nodes.length}>Create Treated Comparison</button><details><summary>Examples</summary>{Object.values(sceneTemplates).map(t=><button key={t.id} onClick={()=>loadTemplate(t.id)}>{t.description}</button>)}</details><p className="simple-note">Choose Bind, Signal, Block or Indirect, then click source → target. Block can also target a relationship.</p></aside>):<Sidebar onAdd={(kind) => { addBiologicalNode(kind); setMobilePanel(undefined) }} targetPanel={targetPanel} onBrowseAssets={() => { setShowAssetBrowser(true); setMobilePanel(undefined) }} onAddCallout={() => { addCallout(); setMobilePanel(undefined) }} onOpenModules={() => { setShowModulePanel(true); setMobilePanel(undefined) }} />}
+      {/* Row 1: Unified Studio Header */}
+      <header className="studio-header" data-export-exclude="true">
+        <div className="studio-brand">
+          <span className="studio-brand-icon">
+            <FlaskConical size={18} />
+          </span>
+          <div>
+            <strong>BioScene</strong>
+            <small>MoA STUDIO</small>
+          </div>
         </div>
-        <main className={`canvas-wrap tool-${drawingTool}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
-          <CanvasDisplayProvider value={canvasDisplay}><ReactFlow<BioNodeType, BioEdge>
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            elevateEdgesOnSelect={!simple}
-            elevateNodesOnSelect={!simple}
-            onInit={(instance) => { instanceRef.current = instance }}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={(event, node) => simple?clickSimpleNode(node.id):selectObject(node.id, 'node', event.shiftKey)}
-            onNodeDoubleClick={(_, node) => { if(simple)return;selectObject(node.id); if (node.data.kind === 'membrane') membraneAction(node.id, 'edit'); else openMoleculeBuilder(node) }}
-            onNodeContextMenu={(event, node) => { event.preventDefault(); if(simple)return;selectObject(node.id); setContextTarget({ id: node.id, kind: 'node', x: event.clientX, y: event.clientY }) }}
-            onEdgeClick={(_, edge) => simple&&simpleRelation==='Block'&&relationSource?connectSimple(relationSource,[edge.target],'Block',edge.id):selectObject(edge.id, 'edge')}
-            onEdgeContextMenu={(event, edge) => { event.preventDefault();if(simple)return; selectObject(edge.id, 'edge'); setContextTarget({ id: edge.id, kind: 'edge', x: event.clientX, y: event.clientY }) }}
-            onSelectionChange={handleSelectionChange}
-            onPaneClick={handlePaneClick}
-            onNodeDragStop={(_, node) => handleNodeDragStop(node)}
-            panOnDrag={drawingTool === 'pan' || drawingTool === 'select'}
-            selectionOnDrag={false}
-            nodesDraggable={drawingTool === 'select'}
-            nodesConnectable={!simple && drawingTool === 'select'}
-            elementsSelectable={drawingTool === 'select'}
-            snapToGrid={workspace.snapToGrid}
-            snapGrid={[workspace.gridSize, workspace.gridSize]}
-            fitView
-            fitViewOptions={{ padding: 0.12 }}
-            minZoom={simple?0.1:0.45}
-            maxZoom={1.8}
-            selectionKeyCode="Shift"
-            multiSelectionKeyCode="Shift"
-            deleteKeyCode={null}
+
+        <div className="studio-title-box">
+          <input
+            className="studio-title-input"
+            aria-label="Figure title"
+            value={sceneTitle}
+            onChange={(e) => setSceneTitle(e.target.value)}
+            title="클릭하여 도식 제목 수정"
+          />
+        </div>
+        <span className="studio-save-pill" role="status">
+          {autosaveStatus === 'saved' ? '자동 저장됨' : '저장 중…'}
+        </span>
+
+        <div className="studio-header-spacer" />
+
+        <div className="studio-header-actions">
+          <button
+            className="studio-btn"
+            data-testid="undo"
+            aria-label="Undo"
+            title="실행 취소 (⌘Z)"
+            disabled={!undoStack.current.length}
+            onClick={undo}
+            data-history-version={historyVersion}
           >
-            {!simple&&<><Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#cbd8d1" />
-            <ViewportPortal>
-              <div className="figure-workspace-frame" style={{ width: workspace.width, height: workspace.height, backgroundColor: workspaceBackground(workspace) ?? 'transparent' }}>
-                {workspace.showGrid && <div className="workspace-grid" style={{ backgroundSize: `${workspace.gridSize}px ${workspace.gridSize}px` }} data-export-exclude="true" />}
-                {workspace.showSafeMargin && <div className="workspace-safe-margin" style={{ inset: workspace.safeMargin }} data-export-exclude="true" />}
-                {workspace.showCenterGuide && <><div className="workspace-center-guide horizontal" data-export-exclude="true"/><div className="workspace-center-guide vertical" data-export-exclude="true"/></>}
-                <span className="workspace-dimensions" data-export-exclude="true">{Math.round(workspace.width)} × {Math.round(workspace.height)} {workspace.unit}</span>
-              </div>
-            </ViewportPortal>
-            <Controls position="bottom-left" showInteractive={false} />
-            <MiniMap position="bottom-right" nodeColor={(node) => node.type === 'cell' ? '#dcece5' : '#5f8878'} maskColor="rgba(245,249,247,.76)" />
-            <Panel position="top-left" className="canvas-tools">
-              <button className={mode === 'biological' ? 'mode-button active' : 'mode-button'} data-help="ON이면 개체를 허용된 세포 구획 안에만 배치하고 잘못된 연결을 차단합니다. Free Edit로 바꾸면 위치 제약을 풀지만 과학적 경고는 계속 계산됩니다." onClick={toggleMode}>
-                {mode === 'biological' ? <LockKeyhole size={15} /> : <UnlockKeyhole size={15} />}
-                {mode === 'biological' ? 'Biological Constraint ON' : 'Free Edit'}
+            <Undo2 size={15} /> 취소
+          </button>
+          <button className="studio-btn" data-testid="redo" aria-label="Redo" title="다시 실행 (⇧⌘Z)" disabled={!redoStack.current.length} onClick={redo}>
+            <Redo2 size={15} /> 재실행
+          </button>
+
+          <button className="studio-secondary-btn" onClick={() => setShowMechanismComposer(true)} title="문장으로 기전 설명을 입력하면 자동으로 도식을 생성합니다">
+            <Sparkles size={14} /> 문장 생성
+          </button>
+
+          <button className="studio-secondary-btn" data-testid="protein-setup" onClick={() => openMoleculeBuilder()} title="단백질 UniProt/AlphaFold 구조 및 항체 도메인 상세 설계">
+            <Workflow size={14} /> 분자 설계
+          </button>
+
+          <button className="studio-secondary-btn" data-testid="save-json" onClick={saveJson} title="현재 장면을 BioScene JSON으로 저장">
+            <Save size={14} /> 저장
+          </button>
+          <button className="studio-secondary-btn" onClick={() => fileInput.current?.click()} title="저장한 JSON 불러오기">
+            <FolderOpen size={14} /> 열기
+          </button>
+
+          <details className="studio-more-menu">
+            <summary>
+              <Settings2 size={14} /> 고급 도구
+            </summary>
+            <div className="studio-more-popover">
+              <button data-testid="workspace-settings" onClick={() => setShowWorkspaceSetup(true)}>
+                <PanelsTopLeft size={14} /> 캔버스 크기 · 여백 설정
               </button>
-              <button className="tool-button" data-help="현재 개체와 연결을 ELK가 다시 정렬합니다. Biological Constraint가 켜져 있으면 세포 구획과 부모-자식 관계를 유지한 채 겹침을 줄입니다." onClick={runLayout} disabled={isLayingOut}><Sparkles size={15} /> {isLayingOut ? 'Laying out…' : 'Auto layout'}</button>
-              <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
-              <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
-              <button className="tool-button" data-testid="workspace-settings" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
-              <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
-              <div className="canvas-view-switch" data-export-exclude="true" data-help="CLEAN은 최종 그림처럼 분자 형태만 표시하고, DETAIL은 이름·포트·구획 등 편집 정보를 표시합니다."><button className={canvasViewMode==='clean'?'active':''} onClick={()=>setCanvasMode('clean')}>CLEAN</button><button className={canvasViewMode==='detail'?'active':''} onClick={()=>setCanvasMode('detail')}>DETAIL</button></div>
-              <select className="figure-preset-select" aria-label="Figure preset" value={figurePreset} onChange={(event)=>applyFigurePreset(event.target.value as FigurePreset)} data-export-exclude="true" data-help="Publication은 무라벨 도식, Presentation은 이름 중심, Mechanism은 기전 설명, Debug는 모든 편집 정보를 표시합니다."><option value="publication">Publication</option><option value="presentation">Presentation</option><option value="mechanism">Mechanism</option><option value="debug">Debug</option></select>
-              <details className="overlay-menu" data-export-exclude="true"><summary>Overlays</summary><div>{([['names','Names'],['ports','Ports'],['anchors','Anchors'],['domains','Domains'],['functions','Functions'],['state','State'],['compartments','Compartments'],['interactionLabels','Interactions'],['ids','IDs'],['debug','Debug']] as [CanvasOverlay,string][]).map(([key,label])=><label key={key}><input type="checkbox" checked={canvasOverlays[key]} onChange={()=>toggleCanvasOverlay(key)}/>{label}</label>)}</div></details>
-            </Panel>
-            <Panel position="top-center" className="alignment-tools" aria-label="Alignment tools" data-help="Shift+클릭으로 둘 이상의 개체를 선택한 뒤 정렬 또는 균등 분배합니다. 선택한 개체의 세포 구획 제약은 유지됩니다.">
-              <button title="Align left" aria-label="Align left" onClick={() => alignSelection('left')}><AlignStartVertical size={15} /></button>
-              <button title="Align center horizontally" aria-label="Align center horizontally" onClick={() => alignSelection('center-x')}><AlignCenterVertical size={15} /></button>
-              <button title="Align right" aria-label="Align right" onClick={() => alignSelection('right')}><AlignEndVertical size={15} /></button>
-              <span />
-              <button title="Align top" aria-label="Align top" onClick={() => alignSelection('top')}><AlignStartHorizontal size={15} /></button>
-              <button title="Align center vertically" aria-label="Align center vertically" onClick={() => alignSelection('center-y')}><AlignCenterHorizontal size={15} /></button>
-              <button title="Align bottom" aria-label="Align bottom" onClick={() => alignSelection('bottom')}><AlignEndHorizontal size={15} /></button>
-              <span />
-              <button title="Distribute horizontally" aria-label="Distribute horizontally" onClick={() => alignSelection('distribute-x')}><AlignHorizontalDistributeCenter size={15} /></button>
-              <button title="Distribute vertically" aria-label="Distribute vertically" onClick={() => alignSelection('distribute-y')}><AlignVerticalDistributeCenter size={15} /></button>
-            </Panel>
-            <Panel position="top-right" className="scene-badge template-picker" data-help="왼쪽은 현재 biology를 보는 Scene scope이고 오른쪽은 시작용 biology template입니다. Scene 변경은 개체를 삭제하지 않지만 template 변경은 확인 후 전체 장면을 교체합니다."><LayoutTemplate size={14}/><select aria-label="Scene type" value={visualizationProfile.sceneType} onChange={(event) => changeVisualizationProfile({ ...visualizationProfile, sceneType: event.target.value as VisualizationProfile['sceneType'] })}>{Object.entries(sceneTypeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
-            {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
-            </>}
-            <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span role="status">{notice}</span>{!simple&&<div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div>}</Panel>
-            {!simple&&<Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>Drag canvas to move view · ESC to exit</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>}
-          </ReactFlow></CanvasDisplayProvider>
-          {!simple&&<LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>}
-          {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
-          {!simple&&visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
+              <button onClick={() => setShowProductionPanel(true)}>
+                <Download size={14} /> 스냅샷 · 출판 내보내기
+              </button>
+              <button onClick={() => setShowLiteraturePanel(true)}>
+                <BookOpen size={14} /> PMID · DOI 문헌 근거
+              </button>
+              <button onClick={() => setShowCollaborationPanel(true)}>
+                <Cloud size={14} /> 클라우드 협업 룸 동기화
+              </button>
+              <button onClick={() => setShowReviewPanel(true)}>
+                <ClipboardCheck size={14} /> 과학 검수 ({review.status})
+              </button>
+              <button onClick={() => setShowShortcuts(true)}>
+                <HelpCircle size={14} /> 단축키 안내
+              </button>
+              <hr />
+              <label>
+                장면 범위 (Scene scope)
+                <select
+                  aria-label="Scene type"
+                  value={visualizationProfile.sceneType}
+                  onChange={(event) =>
+                    changeVisualizationProfile({
+                      ...visualizationProfile,
+                      sceneType: event.target.value as VisualizationProfile['sceneType'],
+                    })
+                  }
+                >
+                  {Object.entries(sceneTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                레거시 템플릿 불러오기
+                <select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>
+                  {Object.values(sceneTemplates).map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.description}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </details>
+
+          <div className="studio-export-combo">
+            <select aria-label="Export format" value={exportFormat} onChange={(e) => setExportFormat(e.target.value as typeof exportFormat)}>
+              <option value="svg">SVG 벡터</option>
+              <option value="png">PNG 고화질</option>
+              <option value="pptx">PPTX 슬라이드</option>
+              <option value="package">AI 패키지 (.zip)</option>
+            </select>
+            <button className="studio-primary-btn" disabled={!nodes.length} onClick={() => void exportFigure(exportFormat)}>
+              <Download size={14} /> 내보내기
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Row 2: Direct Manipulation & 1-Click Interaction Toolbar */}
+      <nav className="studio-subtoolbar" aria-label="BioScene 편집 도구" data-export-exclude="true">
+        <div className="tool-cluster" role="group" aria-label="선택 및 화면 이동">
+          <button
+            className={`tool-chip ${drawingTool === 'select' && !connectMode ? 'is-active' : ''}`}
+            data-testid="tool-select"
+            onClick={() => {
+              setDrawingTool('select')
+              setConnectMode(undefined)
+            }}
+            title="선택 및 직접 이동 (V)"
+          >
+            <MousePointer2 size={14} /> 선택 <kbd>V</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'pan' ? 'is-active' : ''}`}
+            data-testid="tool-pan"
+            onClick={() => {
+              setDrawingTool('pan')
+              setConnectMode(undefined)
+            }}
+            title="화면 드래그 이동 (H)"
+          >
+            <Hand size={14} /> 손바닥 <kbd>H</kbd>
+          </button>
+        </div>
+
+        <div className="tool-cluster" role="group" aria-label="빠른 개체 그리기">
+          <button
+            className={`tool-chip ${drawingTool === 'place_cell' ? 'is-active' : ''}`}
+            data-testid="tool-place_cell"
+            onClick={() => {
+              setDrawingTool('place_cell')
+              setConnectMode(undefined)
+            }}
+            title="캔버스 클릭 위치에 새 세포 생성 (C)"
+          >
+            <Circle size={14} /> 세포 <kbd>C</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'freehand_membrane' ? 'is-active' : ''}`}
+            data-testid="tool-freehand_membrane"
+            onClick={() => {
+              setDrawingTool('freehand_membrane')
+              setConnectMode(undefined)
+            }}
+            title="드래그해 자유 곡선 인지질 막 그리기 (M)"
+          >
+            <Copy size={14} /> 곡선막 <kbd>M</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'straight_membrane' ? 'is-active' : ''}`}
+            data-testid="tool-straight_membrane"
+            onClick={() => {
+              setDrawingTool('straight_membrane')
+              setConnectMode(undefined)
+            }}
+            title="드래그해 직선 인지질 막 그리기"
+          >
+            <Minus size={14} /> 직선막
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'place_receptor' ? 'is-active' : ''}`}
+            data-testid="tool-place_receptor"
+            onClick={() => {
+              setDrawingTool('place_receptor')
+              setConnectMode(undefined)
+            }}
+            title="수용체 클릭 배치 (P)"
+          >
+            <Component size={14} /> 수용체 <kbd>P</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'place_antibody' ? 'is-active' : ''}`}
+            data-testid="tool-place_antibody"
+            onClick={() => {
+              setDrawingTool('place_antibody')
+              setConnectMode(undefined)
+            }}
+            title="항체 클릭 배치 (A)"
+          >
+            <ShieldCheck size={14} /> 항체 <kbd>A</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'place_ligand' ? 'is-active' : ''}`}
+            data-testid="tool-place_ligand"
+            onClick={() => {
+              setDrawingTool('place_ligand')
+              setConnectMode(undefined)
+            }}
+            title="사이토카인/리간드 클릭 배치 (L)"
+          >
+            <Pill size={14} /> 리간드 <kbd>L</kbd>
+          </button>
+          <button
+            className={`tool-chip ${drawingTool === 'place_annotation' ? 'is-active' : ''}`}
+            data-testid="tool-place_annotation"
+            onClick={() => {
+              setDrawingTool('place_annotation')
+              setConnectMode(undefined)
+            }}
+            title="설명 텍스트 콜아웃 배치 (T)"
+          >
+            <Type size={14} /> 설명 <kbd>T</kbd>
+          </button>
+          <button
+            className={`tool-chip ${continuousTool ? 'is-active' : ''}`}
+            data-testid="continuous-tool"
+            aria-pressed={continuousTool}
+            onClick={() => setContinuousTool((v) => !v)}
+            title="연속 그리기 고정"
+          >
+            <Pin size={13} />
+          </button>
+        </div>
+
+        <div className="tool-cluster" role="group" aria-label="상호작용 연결 도구">
+          {([
+            ['BLOCK', false, '차단 ⊣', 'rel-block', Ban],
+            ['BIND', false, '결합 —', 'rel-bind', Link2],
+            ['ACTIVATE', false, '활성 →', 'rel-activate', Zap],
+            ['PHOSPHORYLATE', false, '인산화 +P', 'rel-activate', Plus],
+            ['TRANSLOCATE', false, '핵·막 이동 ⇢', 'rel-bind', Sparkles],
+          ] as const).map(([type, ind, label, cls, Icon]) => {
+            const active = connectMode?.interaction === type && Boolean(connectMode?.indirect) === ind
+            return (
+              <button
+                key={label}
+                className={`tool-chip ${cls} ${active ? 'is-active' : ''}`}
+                aria-pressed={active}
+                onClick={() => {
+                  setDrawingTool('select')
+                  if (active) {
+                    setConnectMode(undefined)
+                    setNotice('선택 모드')
+                  } else {
+                    setConnectMode({ interaction: type, indirect: ind, sourceId: undefined })
+                    setNotice(`${label}: 출발 분자를 먼저 클릭한 뒤 도착 분자를 클릭하세요 (ESC 취소).`)
+                  }
+                }}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="subtoolbar-spacer" />
+
+        <div className="tool-cluster" role="group" aria-label="정렬 및 화면 맞춤">
+          <button className="tool-chip" title="좌측 맞춤 정렬" onClick={() => alignSelection('left')}>
+            <AlignStartVertical size={14} />
+          </button>
+          <button className="tool-chip" title="수평 중앙 정렬" onClick={() => alignSelection('center-x')}>
+            <AlignCenterVertical size={14} />
+          </button>
+          <button className="tool-chip" title="상단 맞춤 정렬" onClick={() => alignSelection('top')}>
+            <AlignStartHorizontal size={14} />
+          </button>
+          <button className="tool-chip" title="수직 중앙 정렬" onClick={() => alignSelection('center-y')}>
+            <AlignCenterHorizontal size={14} />
+          </button>
+          <button className="tool-chip" onClick={() => void runLayout()} disabled={isLayingOut} title="구획 기준으로 겹침 없이 자동 정렬">
+            <Sparkles size={13} /> 자동 정렬
+          </button>
+          <button className="tool-chip" onClick={() => instanceRef.current?.fitView({ padding: 0.12, duration: 300 })} title="전체 그림 화면에 맞추기">
+            <Maximize2 size={13} /> 화면 맞춤
+          </button>
+        </div>
+      </nav>
+
+      {/* Row 3: 3-Column Studio Workspace */}
+      <div className="studio-workspace">
+        <StudioPalette
+          activeTab={paletteTab}
+          onTabChange={setPaletteTab}
+          nodes={nodes}
+          library={moleculeLibrary}
+          selectedNode={selectedNode}
+          onLoadBlueprint={loadBlueprint}
+          onStartEmpty={startEmptyCanvas}
+          onAddCell={(opts) => {
+            const added = placeStudioCell(nodes, opts)
+            setNodes(added.nodes.map((n) => ({ ...n, selected: n.id === added.cellId })))
+            setSelectedNodeId(added.cellId)
+            setSelectedEdgeId(undefined)
+            setNotice(`${opts.name} 세포가 추가되었습니다. 이제 ‘단백질’ 탭에서 수용체를 추가해 보세요.`)
+            window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.12, duration: 300 }), 60)
+          }}
+          onCloneTreatedComparison={() => {
+            const next = treatedComparison(nodes, edges)
+            setNodes(next.nodes)
+            setEdges(next.edges)
+            setNotice('우측에 처치군(Treated) 비교 패널이 복제되었습니다. 항체와 신호 상태를 편집해 비교 도식을 완성하세요.')
+            window.setTimeout(() => instanceRef.current?.fitView({ padding: 0.1, duration: 350 }), 80)
+          }}
+          onAddCatalogProtein={handleAddCatalogProtein}
+          onAddUniProtMolecule={handleAddUniProtMolecule}
+          onAddTherapeutic={handleAddTherapeutic}
+          onInsertSvgAsset={handleInsertSvgAsset}
+          onOpenAdvancedMoleculeSetup={() => openMoleculeBuilder()}
+          onOpenMechanismComposer={() => setShowMechanismComposer(true)}
+        />
+
+        <main
+          className={`canvas-wrap tool-${drawingTool}`}
+          ref={flowRef}
+          onPointerDown={startDrawing}
+          onPointerMove={continueDrawing}
+          onPointerUp={finishDrawing}
+          onPointerCancel={() => setDraftMembrane(undefined)}
+        >
+          <CanvasDisplayProvider value={canvasDisplay}>
+            <ReactFlow<BioNodeType, BioEdge>
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onInit={(instance) => {
+                instanceRef.current = instance
+                window.setTimeout(() => instance.fitView({ padding: 0.12, duration: 0 }), 40)
+              }}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onNodeClick={handleNodeClickInStudio}
+              onNodeContextMenu={(event, node) => {
+                event.preventDefault()
+                selectObject(node.id)
+                setContextTarget({ id: node.id, kind: 'node', x: event.clientX, y: event.clientY })
+              }}
+              onEdgeClick={handleEdgeClickInStudio}
+              onEdgeContextMenu={(event, edge) => {
+                event.preventDefault()
+                selectObject(edge.id, 'edge')
+                setContextTarget({ id: edge.id, kind: 'edge', x: event.clientX, y: event.clientY })
+              }}
+              onSelectionChange={handleSelectionChange}
+              onPaneClick={handlePaneClick}
+              onNodeDragStop={(_, node) => handleNodeDragStop(node)}
+              panOnDrag={drawingTool === 'pan' || drawingTool === 'select'}
+              selectionOnDrag={false}
+              nodesDraggable={drawingTool === 'select'}
+              nodesConnectable={drawingTool === 'select'}
+              elementsSelectable={drawingTool === 'select'}
+              snapToGrid={workspace.snapToGrid}
+              snapGrid={[workspace.gridSize, workspace.gridSize]}
+              fitView
+              fitViewOptions={{ padding: 0.12 }}
+              minZoom={0.15}
+              maxZoom={2.2}
+              selectionKeyCode="Shift"
+              multiSelectionKeyCode="Shift"
+              deleteKeyCode={null}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={24} size={1} color={stylePreset === 'presentation-dark' ? '#334a42' : '#d5e2dc'} />
+
+              {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && (
+                <ViewportPortal>
+                  <div
+                    className="figure-workspace-frame"
+                    style={{ width: workspace.width, height: workspace.height, backgroundColor: workspaceBackground(workspace) ?? 'transparent' }}
+                  >
+                    <span className="workspace-dimensions" data-export-exclude="true">
+                      {Math.round(workspace.width)} × {Math.round(workspace.height)} {workspace.unit}
+                    </span>
+                  </div>
+                </ViewportPortal>
+              )}
+
+              <Controls position="bottom-left" showInteractive={false} />
+              <MiniMap
+                position="bottom-right"
+                style={{ width: 128, height: 82 }}
+                nodeColor={(node) => (node.type === 'cell' ? '#d7ece3' : '#4a967c')}
+                maskColor="rgba(244, 249, 246, 0.78)"
+              />
+
+              {connectMode && (
+                <Panel position="top-center" className="active-connect-banner" data-export-exclude="true">
+                  <span>
+                    {connectMode.sourceId
+                      ? `연결 대상 클릭 대기 중 (${connectMode.interaction})`
+                      : `출발 분자를 클릭하세요 (${connectMode.interaction})`}
+                  </span>
+                  <button onClick={() => setConnectMode(undefined)}>취소 (ESC)</button>
+                </Panel>
+              )}
+
+              <Panel position="bottom-center" className="notice-bar" data-export-exclude="true" title={warnings.join('\n')}>
+                <span role="status">{notice}</span>
+              </Panel>
+            </ReactFlow>
+          </CanvasDisplayProvider>
+
+          {draftMembrane && (
+            <svg className="membrane-drawing-preview" aria-hidden="true">
+              <path
+                d={membranePathD(
+                  drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1
+                    ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!]
+                    : draftMembrane.screen,
+                )}
+              />
+            </svg>
+          )}
         </main>
-        <div className={`inspector-shell ${mobilePanel === 'inspector' ? 'open' : ''}`}>
-          <button className="mobile-drawer-close" aria-label="Close inspector panel" onClick={() => setMobilePanel(undefined)}>×</button>
-          {simple?<SimpleInspector nodes={nodes} edges={edges} selected={selectedNode} edge={selectedEdge} onSelect={clickSimpleNode} onChange={updateSelectedNode} onCount={(count,density)=>{if(!selectedNode)return;const next=changeRepresentation(nodes,selectedNode.id,count,density);setNodes(next);setEdges(items=>pruneSimpleEdges(next,items))}} onDelete={deleteSelected} onConnect={connectSimple}/>:<Inspector
+
+        {selectedNode?.data.kind === 'membrane' ? (
+          <Inspector
             selectedNode={selectedNode}
             selectedEdgeId={selectedEdgeId}
             selectedInteraction={selectedEdge?.data?.interaction}
@@ -1401,27 +2619,200 @@ function AppCanvas() {
             onDetachAsset={detachAsset}
             onEditStructure={() => openMoleculeBuilder(selectedNode)}
             constraintMode={mode}
-          />}
-        </div>
+          />
+        ) : (
+          <StudioInspector
+            nodes={nodes}
+            edges={edges}
+            selectedNode={selectedNode}
+            selectedEdge={selectedEdge}
+            stylePreset={stylePreset}
+            exportPreset={exportPreset}
+            showCompartmentLabels={canvasOverlays.compartments}
+            showInteractionLabels={canvasOverlays.interactionLabels}
+            onStylePreset={setStylePreset}
+            onExportPreset={setExportPreset}
+            onToggleCompartmentLabels={() => toggleCanvasOverlay('compartments')}
+            onToggleInteractionLabels={() => toggleCanvasOverlay('interactionLabels')}
+            onSelectObject={selectObject}
+            onUpdateNode={updateSelectedNode}
+            onChangeCount={(count) => {
+              if (!selectedNode) return
+              const next = changeRepresentation(nodes, selectedNode.id, count)
+              setNodes(next)
+              setEdges((items) => pruneSimpleEdges(next, items))
+            }}
+            onConnectNodes={(src, dst, rel, blockedEdgeId) => performStudioConnect(src, dst, rel, { blockedEdgeId })}
+            onUpdateEdge={updateSelectedEdge}
+            onUpdateEdgeData={updateSelectedEdgeData}
+            onDuplicateSelected={duplicateSelected}
+            onDeleteSelected={deleteSelected}
+            onDetachAsset={detachAsset}
+            onEditAdvancedStructure={() => openMoleculeBuilder(selectedNode)}
+            onExport={(fmt) => void exportFigure(fmt)}
+          />
+        )}
       </div>
-      {contextTarget && <ObjectContextMenu target={contextTarget} isMembrane={nodes.find((node) => node.id === contextTarget.id)?.data.kind === 'membrane'} locked={!!nodes.find((node) => node.id === contextTarget.id)?.data.locked} onAction={handleContextAction}/>}
-      {showShortcuts && <div className="shortcut-overlay" onMouseDown={() => setShowShortcuts(false)}><section className="shortcut-card" onMouseDown={(event) => event.stopPropagation()}><header><div><span className="eyebrow">EDITOR HELP</span><h2>Keyboard shortcuts</h2></div><button onClick={() => setShowShortcuts(false)}>×</button></header><div><kbd>V</kbd><span>Select</span><kbd>H</kbd><span>Pan</span><kbd>M</kbd><span>Membrane</span><kbd>C</kbd><span>Cell</span><kbd>P</kbd><span>Protein</span><kbd>A</kbd><span>Antibody</span><kbd>T</kbd><span>Text</span><kbd>Del</kbd><span>Delete selection</span><kbd>⌘/Ctrl Z</kbd><span>Undo</span><kbd>⇧ ⌘/Ctrl Z</kbd><span>Redo</span><kbd>⌘/Ctrl C · V</kbd><span>Copy · Paste</span><kbd>⌘/Ctrl D</kbd><span>Duplicate</span><kbd>Esc</kbd><span>Cancel · Select mode</span></div></section></div>}
+
+      {contextTarget && (
+        <ObjectContextMenu
+          target={contextTarget}
+          isMembrane={nodes.find((node) => node.id === contextTarget.id)?.data.kind === 'membrane'}
+          locked={!!nodes.find((node) => node.id === contextTarget.id)?.data.locked}
+          onAction={handleContextAction}
+        />
+      )}
+
+      {showShortcuts && (
+        <div className="shortcut-overlay" onMouseDown={() => setShowShortcuts(false)}>
+          <section className="shortcut-card" onMouseDown={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <span className="eyebrow">EDITOR HELP</span>
+                <h2>키보드 단축키</h2>
+              </div>
+              <button onClick={() => setShowShortcuts(false)}>×</button>
+            </header>
+            <div>
+              <kbd>V</kbd>
+              <span>선택 · 이동</span>
+              <kbd>H</kbd>
+              <span>화면 드래그</span>
+              <kbd>C</kbd>
+              <span>세포 배치</span>
+              <kbd>M</kbd>
+              <span>인지질 막 그리기</span>
+              <kbd>P</kbd>
+              <span>수용체 배치</span>
+              <kbd>A</kbd>
+              <span>항체 배치</span>
+              <kbd>T</kbd>
+              <span>설명 텍스트</span>
+              <kbd>Del</kbd>
+              <span>선택 삭제</span>
+              <kbd>⌘/Ctrl Z</kbd>
+              <span>실행 취소</span>
+              <kbd>⌘/Ctrl D</kbd>
+              <span>복제</span>
+              <kbd>더블클릭</kbd>
+              <span>캔버스에서 바로 이름 수정</span>
+              <kbd>Esc</kbd>
+              <span>연결 취소 · 선택 모드 복귀</span>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showMechanismComposer && <MechanismComposer onClose={() => setShowMechanismComposer(false)} onGenerate={generateFromMechanism} />}
       {showAssetBrowser && <SmartAssetBrowser selectedNode={selectedNode} onClose={() => setShowAssetBrowser(false)} onAttach={attachAsset} />}
-      {showProductionPanel && <ProductionPanel stylePreset={stylePreset} exportPreset={exportPreset} revisions={revisions} onStyle={setStylePreset} onExportPreset={setExportPreset} onSnapshot={createSnapshot} onRestore={restoreRevision} onExport={exportFigure} onClose={() => setShowProductionPanel(false)} />}
+      {showProductionPanel && (
+        <ProductionPanel
+          stylePreset={stylePreset}
+          exportPreset={exportPreset}
+          revisions={revisions}
+          onStyle={setStylePreset}
+          onExportPreset={setExportPreset}
+          onSnapshot={createSnapshot}
+          onRestore={restoreRevision}
+          onExport={exportFigure}
+          onClose={() => setShowProductionPanel(false)}
+        />
+      )}
       {showReviewPanel && <ReviewPanel value={review} onChange={setReview} onClose={() => setShowReviewPanel(false)} onExportPackage={exportReviewPackage} />}
-      {showLiteraturePanel && <LiteraturePanel records={literature} selectedEdgeId={selectedEdgeId} attachedIds={selectedEdge?.data?.evidence?.literatureIds ?? []} enrichingId={enrichingLiteratureId} canEnrich={!!room.endpoint} onChange={updateLiterature} onAttach={attachLiterature} onEnrich={enrichLiteratureRecord} onClose={() => setShowLiteraturePanel(false)} />}
-      {showModulePanel && <TissueModulePanel modules={modules} canSave={!!selectedCell} onSave={saveTissueModule} onInsert={insertTissueModule} onDelete={(id) => setModules((items) => items.filter((item) => item.id !== id))} onClose={() => setShowModulePanel(false)} />}
-      {showCollaborationPanel && <CollaborationPanel value={collaboration} room={room} token={roomToken} busy={isSyncing} supabaseConfigured={supabaseConfigured} signedInEmail={signedInEmail} authBusy={isAuthenticating} onSignIn={signIn} onSignOut={signOut} onChange={setCollaboration} onRoomChange={setRoom} onTokenChange={setRoomToken} onPush={() => syncRoom('push')} onPull={() => syncRoom('pull')} onClose={() => setShowCollaborationPanel(false)} />}
-      {showSceneSettings && <SceneSettingsPanel profile={visualizationProfile} views={views} warnings={warnings} onChange={changeVisualizationProfile} onSaveView={saveCurrentView} onApplyView={openSavedView} onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))} onClose={() => setShowSceneSettings(false)}/>}
-      {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
-      {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} instanceCounts={moleculeInstanceCounts} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onSave={saveMoleculeDefinition} onDelete={deleteMoleculeDefinition} onAdd={addMoleculeToScene} onClose={() => setShowMoleculeSetup(false)}/>}
+      {showLiteraturePanel && (
+        <LiteraturePanel
+          records={literature}
+          selectedEdgeId={selectedEdgeId}
+          attachedIds={selectedEdge?.data?.evidence?.literatureIds ?? []}
+          enrichingId={enrichingLiteratureId}
+          canEnrich={!!room.endpoint}
+          onChange={updateLiterature}
+          onAttach={attachLiterature}
+          onEnrich={enrichLiteratureRecord}
+          onClose={() => setShowLiteraturePanel(false)}
+        />
+      )}
+      {showModulePanel && (
+        <TissueModulePanel
+          modules={modules}
+          canSave={!!selectedCell}
+          onSave={saveTissueModule}
+          onInsert={insertTissueModule}
+          onDelete={(id) => setModules((items) => items.filter((item) => item.id !== id))}
+          onClose={() => setShowModulePanel(false)}
+        />
+      )}
+      {showCollaborationPanel && (
+        <CollaborationPanel
+          value={collaboration}
+          room={room}
+          token={roomToken}
+          busy={isSyncing}
+          supabaseConfigured={supabaseConfigured}
+          signedInEmail={signedInEmail}
+          authBusy={isAuthenticating}
+          onSignIn={signIn}
+          onSignOut={signOut}
+          onChange={setCollaboration}
+          onRoomChange={setRoom}
+          onTokenChange={setRoomToken}
+          onPush={() => syncRoom('push')}
+          onPull={() => syncRoom('pull')}
+          onClose={() => setShowCollaborationPanel(false)}
+        />
+      )}
+      {showSceneSettings && (
+        <SceneSettingsPanel
+          profile={visualizationProfile}
+          views={views}
+          warnings={warnings}
+          onChange={changeVisualizationProfile}
+          onSaveView={() => {
+            const name = window.prompt('저장할 뷰 이름', `${sceneTypeLabels[visualizationProfile.sceneType]} view`)
+            if (!name?.trim()) return
+            const view = captureView(uid('view'), name.trim(), visualizationProfile, nodes)
+            setViews((items) => [...items, view])
+            setActiveViewId(view.id)
+          }}
+          onApplyView={(view) => {
+            const restored = restoreView(view, nodes, edges)
+            setVisualizationProfile(view.profile)
+            setNodes(restored.nodes)
+            setEdges(restored.edges)
+            setActiveViewId(view.id)
+            setShowSceneSettings(false)
+          }}
+          onDeleteView={(id) => setViews((items) => items.filter((view) => view.id !== id))}
+          onClose={() => setShowSceneSettings(false)}
+        />
+      )}
+      {showMoleculeSetup && (
+        <MoleculeSetupPanel
+          molecules={moleculeLibrary}
+          customFunctions={customFunctions}
+          initialMoleculeId={setupMoleculeId}
+          canApply={!!selectedNode && !['cell', 'annotation', 'signal', 'transcription'].includes(selectedNode.data.kind)}
+          instanceCounts={moleculeInstanceCounts}
+          onChange={setMoleculeLibrary}
+          onCustomFunctions={setCustomFunctions}
+          onSave={saveMoleculeDefinition}
+          onDelete={deleteMoleculeDefinition}
+          onAdd={addMoleculeToScene}
+          onClose={() => setShowMoleculeSetup(false)}
+        />
+      )}
       {showWorkspaceSetup && <WorkspaceSetupPanel value={workspace} hasContent={nodes.length > 0} onSave={saveWorkspace} onFitContent={fitWorkspaceToContent} onClose={() => setShowWorkspaceSetup(false)} />}
-      {!simple&&<ContextHelp />}
+      <ContextHelp />
     </div>
   )
 }
 
 export default function App() {
-  return <ErrorBoundary><ReactFlowProvider><AppCanvas /></ReactFlowProvider></ErrorBoundary>
+  return (
+    <ErrorBoundary>
+      <ReactFlowProvider>
+        <AppCanvas />
+      </ReactFlowProvider>
+    </ErrorBoundary>
+  )
 }

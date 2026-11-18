@@ -201,10 +201,20 @@ export interface MoleculeDefinition {
   savedAt?: string
 }
 
+export type CellShapeStyle = 'membrane_zoom' | 'round_cell' | 'tumor_cell'
+export type CellColorTheme = 'emerald' | 'sky' | 'coral' | 'amber' | 'violet' | 'sage'
+
 export interface BioNodeFields {
   /** Schematic display multiplicity, never biological copy number. */
   visualRepresentation?: { groupId: string; count: number; density?: 'Low' | 'Medium' | 'High' | 'Clustered' }
   simpleCell?: boolean
+  cellShape?: CellShapeStyle
+  cellTheme?: CellColorTheme
+  customColor?: string
+  phosphorylated?: boolean
+  hasPayload?: boolean
+  smallMolecule?: boolean
+  autoAimTarget?: boolean
   label: string
   subtitle?: string
   kind: BioKind

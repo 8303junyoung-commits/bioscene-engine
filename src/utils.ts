@@ -6,7 +6,7 @@ import { architectureForFormat, defaultStructuralModel } from './molecules'
 import { defaultFigureWorkspace, sanitizeWorkspace } from './workspace'
 
 const nodeWidth = 132
-const yBounds: Record<Compartment, [number, number]> = { extracellular: [48, 120], membrane: [180, 205], cytoplasm: [280, 365], nucleus: [390, 429], endosome: [305, 324], mitochondria: [405, 419] }
+const yBounds: Record<Compartment, [number, number]> = { extracellular: [36, 130], membrane: [160, 215], cytoplasm: [265, 375], nucleus: [375, 445], endosome: [295, 335], mitochondria: [395, 435] }
 export function regionBoundsFor(compartment: Compartment, width = 620) {
   const horizontal: Record<Compartment, [number, number]> = {
     extracellular: [50, Math.max(50, width - nodeWidth - 18)], membrane: [50, Math.max(50, width - nodeWidth - 18)], cytoplasm: [50, Math.max(50, width - nodeWidth - 18)],
@@ -217,7 +217,33 @@ export function parseSceneFile(value: unknown): SceneFile | undefined {
       const positionMode = ['auto','manual','pinned'].includes(String(node.data.positionMode)) ? node.data.positionMode : 'auto'
       const visualScale = typeof node.data.visualScale === 'number' && Number.isFinite(node.data.visualScale) ? Math.min(2, Math.max(.5, node.data.visualScale)) : 1
       const visualRotation = typeof node.data.visualRotation === 'number' && Number.isFinite(node.data.visualRotation) ? Math.min(180, Math.max(-180, node.data.visualRotation)) : 0
-      return { ...node, hidden: visibility !== 'visible', draggable: node.data.locked ? false : node.draggable, deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable, data: { ...defaults, asset: sanitizeAsset(node.data.asset), state: matchingState?.id ?? defaults.state, visibility, positionMode, locked: node.data.locked === true, showName:node.data.showName === true, visualScale, visualRotation } }
+      const cellShape = ['membrane_zoom', 'round_cell', 'tumor_cell'].includes(String(node.data.cellShape)) ? node.data.cellShape : undefined
+      const cellTheme = ['emerald', 'sky', 'coral', 'amber', 'violet', 'sage'].includes(String(node.data.cellTheme)) ? node.data.cellTheme : undefined
+      const customColor = typeof node.data.customColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(node.data.customColor) ? node.data.customColor : undefined
+      return {
+        ...node,
+        hidden: visibility !== 'visible',
+        draggable: node.data.locked ? false : node.draggable,
+        deletable: node.data.kind === 'cell' || node.data.kind === 'membrane' ? false : node.deletable,
+        data: {
+          ...defaults,
+          asset: sanitizeAsset(node.data.asset),
+          state: matchingState?.id ?? defaults.state,
+          visibility,
+          positionMode,
+          locked: node.data.locked === true,
+          showName: typeof node.data.showName === 'boolean' ? node.data.showName : undefined,
+          visualScale,
+          visualRotation,
+          ...(cellShape ? { cellShape } : {}),
+          ...(cellTheme ? { cellTheme } : {}),
+          ...(customColor ? { customColor } : {}),
+          ...(typeof node.data.phosphorylated === 'boolean' ? { phosphorylated: node.data.phosphorylated } : {}),
+          ...(typeof node.data.hasPayload === 'boolean' ? { hasPayload: node.data.hasPayload } : {}),
+          ...(typeof node.data.smallMolecule === 'boolean' ? { smallMolecule: node.data.smallMolecule } : {}),
+          ...(typeof node.data.autoAimTarget === 'boolean' ? { autoAimTarget: node.data.autoAimTarget } : {}),
+        },
+      }
     })
     const byId = new Map(nodes.map((node) => [node.id, node]))
     const edges = (legacy.edges as BioEdge[]).map((edge) => {
