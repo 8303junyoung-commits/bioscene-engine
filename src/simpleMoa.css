@@ -1,0 +1,80 @@
+.simple-mode { background:#f7faf8; color:#193a31; grid-template-rows:70px auto 1fr; }
+.simple-mode button,.simple-mode input,.simple-mode select { font:inherit; }
+.simple-mode button { border:1px solid #d7e3dc; background:white; border-radius:9px; padding:9px 12px; color:#274b3e; cursor:pointer; }
+.simple-mode button:hover { background:#edf6f0; border-color:#97baaa; }
+.simple-mode button:disabled { opacity:.45; cursor:default; }
+.simple-mode button.primary-button { background:#24694e; border-color:#24694e; color:white; }
+.simple-mode button[aria-pressed=true] { background:#d8eddf; border-color:#418969; }
+.simple-mode input:not([type=range]):not([type=checkbox]),.simple-mode select { width:100%; padding:10px; border:1px solid #d7e3dc; border-radius:8px; background:#fff; min-width:0; }
+.simple-mode h2 { font-size:18px; margin:0 0 16px; }
+.simple-mode h3 { font-size:13px; margin-top:24px; }
+.simple-mode p { line-height:1.6; font-size:13px; }
+.simple-mode small,.simple-note { color:#657d71; line-height:1.6; font-size:11px; }
+.simple-topbar { display:flex; align-items:center; gap:12px; padding:12px 22px; border-bottom:1px solid #dce6df; background:white; }
+.simple-topbar strong { font-size:22px; margin-right:10px; white-space:nowrap; }
+.simple-topbar strong small { display:block; font-size:11px; font-weight:400; }
+.simple-save-status { margin-right:auto; color:#61806f; font-size:12px; }
+.simple-export { display:flex; gap:6px; }
+.simple-mode .simple-export select { width:100px; }
+.simple-toolbar { display:flex; align-items:center; gap:8px; padding:12px 22px; background:#f7faf8; border-bottom:1px solid #dce6df; }
+.simple-toolbar label { display:flex; align-items:center; margin-left:auto; font-size:11px; gap:8px; }
+.simple-toolbar input { width:110px; accent-color:#24694e; }
+.simple-mode .workspace { grid-template-columns:290px minmax(260px,1fr) 240px; }
+.simple-panel,.simple-inspector { padding:24px 20px; height:100%; overflow:auto; background:white; }
+.simple-panel header,.protein-count header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.simple-panel header button,.protein-count header button { padding:3px 8px; }
+.simple-panel label,.simple-inspector label { display:block; margin:16px 0; font-size:12px; }
+.simple-panel label input,.simple-panel label select,.simple-inspector label input { margin-top:6px; }
+.simple-step { text-transform:uppercase; letter-spacing:.08em; color:#39745a; font-weight:600; }
+.simple-options { display:grid; gap:7px; margin:14px 0; grid-template-columns:1fr 1fr; }
+.simple-options button { text-align:left; font-size:12px; }
+.simple-options.protein-options { grid-template-columns:repeat(3,1fr); }
+.simple-options.protein-options button { padding:8px 6px; text-align:center; }
+.simple-chips { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+.protein-count { margin-top:15px; padding:12px 0; border-top:1px solid #e4eae6; }
+.count-picker { display:flex; flex-wrap:wrap; gap:5px; margin:8px 0; }
+.simple-mode .count-picker button { padding:6px 9px; }
+.simple-mode .count-picker select { width:95px; padding:5px; font-size:11px; }
+.simple-panel>button { margin:10px 0; width:100%; }
+.simple-panel details { margin:22px 0; font-size:13px; }
+.simple-panel details button { margin:4px 0; width:100%; text-align:left; }
+.simple-generate { width:100%; margin-top:16px!important; }
+.quick-setup { border:1px solid #d7e3dc; padding:10px; border-radius:10px; margin:10px 0; }
+.quick-setup button { margin:4px; font-size:11px; }
+.simple-inspector .simple-check { display:flex; gap:8px; align-items:center; }
+.smart-target { background:#f1f8f3; padding:12px; margin:16px 0; border-radius:10px; }
+.smart-target button { width:100%; margin:4px 0; }
+.summary-list { display:flex; flex-wrap:wrap; gap:6px; }
+.simple-mode .canvas-wrap { background:#fafcfb; }
+.simple-mode .notice-bar { max-width:90%; width:auto; font-size:11px; padding:10px 14px; border-radius:10px; bottom:12px; }
+.simple-mode .bio-node.view-clean { border:0!important; background:transparent!important; box-shadow:none!important; }
+.simple-mode .bio-node.is-selected { outline:1px dashed #70a089; outline-offset:3px; }
+.simple-mode .bio-handle { opacity:0!important; pointer-events:none!important; }
+.simple-mode .react-flow__node-bio { z-index:30!important; }
+.simple-mode .react-flow__node-cell { z-index:0!important; }
+.simple-mode .react-flow__edges { z-index:5!important; }
+.simple-mode .bio-node[data-visual-detail="1"] .antibody-domain-seam,.simple-mode .bio-node[data-visual-detail="1"] .antibody-hinge,.simple-mode .bio-node[data-visual-detail="1"] .protein-fold { display:none; }
+.simple-cell[data-visual-detail="3"] .zone-membrane { background:repeating-linear-gradient(90deg,#d6e5d6 0 5px,#a6c2a4 5px 7px); }
+.simple-mode .structure-glyph text { display:none; }
+.simple-mode .bio-node.view-clean:hover { transform:none; }
+.simple-cell { background:transparent!important; border:0!important; box-shadow:none!important; }
+.simple-cell .zone-extracellular { background:transparent; }
+.simple-cell .zone-membrane { top:212px; height:14px; left:35px; right:35px; border-radius:12px; background:#d6e5d6; border-top:3px solid #90af8f; border-bottom:3px solid #90af8f; }
+.simple-cell .zone-cytoplasm { top:226px; left:35px; right:35px; bottom:15px; height:auto; background:#edf5ee; border:2px solid #aec8b1; border-top:0; border-radius:0 0 110px 110px; }
+.simple-cell .zone-nucleus { top:365px; bottom:auto; height:115px; left:42%; right:16%; background:#e4e6f1; border:2px solid #c9cbdc; border-radius:50%; }
+.simple-cell .cell-label { top:290px; left:65px; font-size:20px; }
+.simple-cell[data-visual-detail="2"] .zone-cytoplasm { background:linear-gradient(145deg,#eff7ef,#dcebe0); }
+.simple-cell[data-visual-detail="3"] .zone-cytoplasm { background:radial-gradient(ellipse at 60% 60%,#f5f8f1,#d5e8dc); }
+.simple-cell[data-visual-detail="3"] .zone-nucleus { background:radial-gradient(ellipse,#d8dbea,#e9eaf3); border-style:double; border-width:4px; }
+.welcome-mode { display:block; min-height:100vh; background:radial-gradient(ellipse at 50% 0%,#e2efe6,#f8faf8 65%); }
+.welcome-mode>.simple-topbar,.welcome-mode>.topbar,.welcome-mode>.simple-toolbar,.welcome-mode>.workspace,.welcome-mode>.editor-toolbar { display:none; }
+.simple-welcome { width:min(470px,calc(100% - 48px)); margin:0 auto; padding:9vh 0 40px; display:flex; flex-direction:column; gap:12px; }
+.welcome-brand { display:flex; gap:10px; align-items:center; font-size:25px; margin-bottom:50px; font-weight:700; }
+.welcome-brand small { font-size:10px; font-weight:400; letter-spacing:.18em; }
+.simple-welcome h1 { font-size:38px; line-height:1.2; letter-spacing:-.035em; margin:5px 0; }
+.simple-welcome>p { margin:4px 0 22px; font-size:15px; color:#617b6d; }
+.simple-mode .simple-welcome>button { padding:16px 20px; text-align:left; }
+.simple-mode .simple-welcome .welcome-primary { padding:24px; font-size:20px; display:flex; justify-content:space-between; margin-bottom:6px; }
+.simple-welcome>small { margin-top:26px; text-align:center; }
+@media(max-width:1100px) { .simple-topbar { flex-wrap:wrap; gap:6px; padding:8px 12px; } .simple-mode { grid-template-rows:auto auto 1fr; } .simple-mode .workspace { grid-template-columns:260px minmax(220px,1fr) 210px; } .simple-toolbar { flex-wrap:wrap; padding:8px; } .simple-panel,.simple-inspector { padding:16px 12px; } }
+@media(max-width:800px) { .simple-mode .workspace { display:flex; flex-wrap:wrap; overflow:auto; } .simple-mode .sidebar-shell,.simple-mode .inspector-shell { position:static!important; transform:none!important; visibility:visible!important; width:100%; max-height:40vh; } .simple-mode .canvas-wrap { width:100%; height:55vh; flex:none; } .simple-mode .simple-save-status { display:none; } .simple-mode .mobile-drawer-close { display:none; } }

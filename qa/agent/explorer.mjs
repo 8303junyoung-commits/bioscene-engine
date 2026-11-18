@@ -3,9 +3,11 @@ import { qaConfig } from '../config.mjs'
 
 const targets={new_figure:['testid','new-figure'],empty_canvas:['testid','start-empty-canvas'],membrane_tool:['testid','tool-freehand_membrane'],protein_tool:['testid','tool-place_receptor'],antibody_tool:['testid','tool-place_antibody'],ligand_tool:['testid','tool-place_ligand'],protein_setup:['testid','protein-setup'],undo:['testid','undo'],redo:['testid','redo'],save_json:['testid','save-json'],workspace:['role','Workspace'],save_molecule:['role','Save Molecule']}
 const selectFields={entity_class:'Entity Class',topology:'Topology'}
+const simpleTargets={build_moa:'Build a MoA →',t_cell:'T cell',pd1:'PD-1',count_3:'Count 3',generate_cell:'Generate',add_drug:'+ Add Drug / Ligand',anti_pd1:'anti-PD-1',show_blockade:'Show blockade',export_blueprint:'Export Blueprint',advanced:'Advanced',simple_mode:'Simple Mode'}
 
 async function applyAction(a,step) {
   if(step.action==='finish'||step.done) return
+  if(step.action==='click'&&simpleTargets[step.target]){await a.page.getByRole('button',{name:simpleTargets[step.target],exact:true}).click();return}
   if(step.action==='wait'){await a.page.waitForTimeout(Math.min(3000,Math.max(100,Number(step.value)||500)));return}
   if(step.action==='screenshot'||step.action==='inspect') return
   if(step.action==='press'){const allowed=['Escape','Delete','Control+z','Control+y']; if(!allowed.includes(step.value)) throw new Error('Planner requested a non-whitelisted key'); await a.pressKey(step.value);return}
@@ -19,7 +21,7 @@ async function applyAction(a,step) {
 
 export async function runExploratoryMission(a,result,mission,client=new GeminiQaClient()) {
   const trace=[]; const deadline=Date.now()+qaConfig.maxExploratoryMinutes*60_000
-  await a.startEmpty()
+  if(/T-cell PD1/i.test(mission)){await a.page.goto(a.baseUrl);await a.page.evaluate(()=>{localStorage.clear();sessionStorage.clear()});await a.page.reload();await a.waitQa()}else await a.startEmpty()
   for(let index=0;index<qaConfig.maxExploratorySteps&&Date.now()<deadline;index+=1){
     const visible=(await a.getVisibleText()).slice(0,12000); const state={objects:await a.qaState('getSceneObjects'),molecules:await a.qaState('getMoleculeDefinitions'),workspace:await a.qaState('getWorkspace')}
     const prompt=`MISSION: ${mission}\nAct like a first-time biomedical researcher. Choose exactly one action from the whitelist schema. Use visible UI only and never request JavaScript, shell, URLs, secrets, or arbitrary selectors. Record a concise action rationale, not chain-of-thought. Stop when the mission is complete or a dead end is clear.\n\nVisible UI:\n${visible}\n\nInstrument summary:\n${JSON.stringify({objectCount:state.objects.length,moleculeNames:state.molecules.map((x)=>x.name),workspace:state.workspace})}`

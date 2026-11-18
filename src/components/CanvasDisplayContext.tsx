@@ -18,6 +18,8 @@ export const figurePresetOverlays: Record<FigurePreset, CanvasOverlays> = {
 }
 
 interface CanvasDisplayValue {
+  simple?: boolean
+  visualDetail?: number
   mode: CanvasViewMode
   overlays: CanvasOverlays
   molecules: MoleculeDefinition[]

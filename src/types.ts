@@ -202,6 +202,9 @@ export interface MoleculeDefinition {
 }
 
 export interface BioNodeFields {
+  /** Schematic display multiplicity, never biological copy number. */
+  visualRepresentation?: { groupId: string; count: number; density?: 'Low' | 'Medium' | 'High' | 'Clustered' }
+  simpleCell?: boolean
   label: string
   subtitle?: string
   kind: BioKind
@@ -252,6 +255,10 @@ export type BioNodePatch = Partial<BioNodeFields>
 
 export interface InteractionData extends Record<string, unknown> {
   interaction: InteractionType
+  /** Dashed presentation of an existing relationship, not a new biology type. */
+  indirect?: boolean
+  /** Optional interaction being blocked by this BLOCK edge. */
+  blockedEdgeId?: string
   note?: string
   evidence?: InteractionEvidence
 }

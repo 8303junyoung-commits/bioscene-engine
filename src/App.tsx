@@ -59,6 +59,10 @@ import { membranePathD, nearestPathPoint, pathPointAt, smoothMembranePoints } fr
 import { defaultFigureWorkspace, workspaceBackground } from './workspace'
 import { CanvasDisplayProvider, cleanOverlays, detailOverlays, figurePresetOverlays, type CanvasOverlay, type CanvasOverlays, type CanvasViewMode, type FigurePreset } from './components/CanvasDisplayContext'
 import { qaApiEnabled, qaClone } from './qaApi'
+import { SimpleMoaPanel, SimpleInspector } from './components/SimpleMoaPanel'
+import { addSimpleDrug, changeRepresentation, generateCells, layoutSimpleCells, pruneSimpleEdges, simpleConnection, treatedComparison, type CellDraft, type SimpleRelation } from './simpleMoa'
+import './simpleMoa.css'
+import { assertVisibleBlocksForCapture, blueprintRelationship, inlineSvgPaintForCapture } from './exportGraphics'
 
 const nodeTypes = { cell: CellNode, bio: BioNode, annotation: AnnotationNode, membrane: MembraneNode }
 const edgeTypes = { interaction: InteractionEdge }
@@ -195,12 +199,20 @@ function repositionMembraneAnchors(items: BioNodeType[], membraneNode: BioNodeTy
 
 function AppCanvas() {
   const autosavedScene = useMemo(readAutosavedScene, [])
-  const initialTemplate = useMemo(() => cloneTemplate(autosavedScene?.templateId ?? DEFAULT_TEMPLATE_ID), [autosavedScene?.templateId])
-  const [nodes, setNodes] = useState<BioNodeType[]>(() => autosavedScene?.nodes ?? initialTemplate.nodes)
-  const [edges, setEdges] = useState<BioEdge[]>(() => autosavedScene?.edges ?? initialTemplate.edges)
+  const [simple, setSimple] = useState(true)
+  const [welcome, setWelcome] = useState(true)
+  const [simplePanel, setSimplePanel] = useState<'cell'|'drug'>()
+  const [simpleRelation, setSimpleRelation] = useState<SimpleRelation>()
+  const [relationSource, setRelationSource] = useState<string>()
+  const [visualDetail, setVisualDetail] = useState(1)
+  const [simpleScope, setSimpleScope] = useState('Cell')
+  const [simpleExport, setSimpleExport] = useState<'svg'|'png'|'package'>('svg')
+  const [newSimpleFigure, setNewSimpleFigure] = useState(true)
+  const [nodes, setNodes] = useState<BioNodeType[]>(() => autosavedScene?.nodes ?? [])
+  const [edges, setEdges] = useState<BioEdge[]>(() => autosavedScene?.edges ?? [])
   const [mode, setMode] = useState<ConstraintMode>(() => autosavedScene?.constraintMode ?? 'biological')
   const [templateId, setTemplateId] = useState<SceneTemplateId>(() => autosavedScene?.templateId ?? DEFAULT_TEMPLATE_ID)
-  const [sceneTitle, setSceneTitle] = useState(() => autosavedScene?.title ?? initialTemplate.title)
+  const [sceneTitle, setSceneTitle] = useState(() => autosavedScene?.title ?? 'New MoA')
   const [sceneCreatedAt, setSceneCreatedAt] = useState(() => autosavedScene?.createdAt ?? new Date().toISOString())
   const [mechanism, setMechanism] = useState<ParsedMechanism | undefined>(() => autosavedScene?.mechanism)
   const [review, setReview] = useState<ReviewMetadata>(() => autosavedScene?.review ?? { status: 'draft', reviewers: [], notes: '', updatedAt: new Date().toISOString() })
@@ -248,7 +260,7 @@ function AppCanvas() {
   const [selectedNodeId, setSelectedNodeId] = useState<string>()
   const [alignmentNodeIds, setAlignmentNodeIds] = useState<string[]>([])
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>()
-  const [notice, setNotice] = useState(autosavedScene ? 'Autosaved scene restored' : 'Untreated vs treated template loaded')
+  const [notice, setNotice] = useState(autosavedScene ? 'Saved figure is available to continue.' : 'Choose a cell to begin.')
   const [isLayingOut, setIsLayingOut] = useState(false)
   const flowRef = useRef<HTMLDivElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
@@ -259,7 +271,7 @@ function AppCanvas() {
   const [historyVersion, setHistoryVersion] = useState(0)
   const editorClipboard = useRef<{ nodes: BioNodeType[]; edges: BioEdge[] } | undefined>(undefined)
   const qaErrorsRef = useRef<string[]>([])
-  const canvasDisplay = useMemo(() => ({ mode:canvasViewMode, overlays:canvasOverlays, molecules:moleculeLibrary }), [canvasOverlays, canvasViewMode, moleculeLibrary])
+  const canvasDisplay = useMemo(() => ({ mode:simple?'clean' as const:canvasViewMode, overlays:simple?{...cleanOverlays,names:true}:canvasOverlays, molecules:moleculeLibrary, simple, visualDetail }), [canvasOverlays, canvasViewMode, moleculeLibrary, simple, visualDetail])
   const setCanvasMode = useCallback((next:CanvasViewMode) => { setCanvasViewMode(next); setCanvasOverlays({ ...(next === 'clean' ? cleanOverlays : detailOverlays) }) }, [])
   const applyFigurePreset = useCallback((next:FigurePreset) => { setFigurePreset(next); const overlays={...figurePresetOverlays[next]}; setCanvasOverlays(overlays); setCanvasViewMode(next === 'debug' ? 'detail' : 'clean'); setNotice(`${next} figure preset applied`) }, [])
   const toggleCanvasOverlay = useCallback((key:CanvasOverlay) => setCanvasOverlays((current) => ({ ...current, [key]:!current[key] })), [])
@@ -304,12 +316,13 @@ function AppCanvas() {
   }), [activeViewId, collaboration, customFunctions, documentEdges, documentNodes, literature, mechanism, mode, moleculeLibrary, review, sceneCreatedAt, sceneTitle, stylePreset, templateId, views, visualizationProfile, workspace])
 
   useEffect(() => {
+    if (welcome) return
     setAutosaveStatus('saving')
     const timer = window.setTimeout(() => {
       try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(currentScene)); setAutosaveStatus('saved') } catch { setNotice('Autosave stopped: storage is full. Save JSON now.') }
     }, 250)
     return () => window.clearTimeout(timer)
-  }, [currentScene])
+  }, [currentScene, welcome])
 
   useEffect(() => { try { localStorage.setItem(REVISION_KEY, JSON.stringify(revisions.slice(0, 5))) } catch { setNotice('Revision storage is full. Export JSON before continuing.') } }, [revisions])
   useEffect(() => { try { localStorage.setItem(MODULE_KEY, JSON.stringify(modules.slice(0, 30))) } catch { setNotice('Module storage is full. Remove old modules.') } }, [modules])
@@ -368,6 +381,14 @@ function AppCanvas() {
 
   const onEdgesChange = useCallback((changes: EdgeChange<BioEdge>[]) => {
     setEdges((current) => applyEdgeChanges(changes, current))
+  }, [])
+
+  // Keep selection callbacks stable: port-drag selection changes must not form
+  // a React Flow effect → new array → render → new callback update loop.
+  const handleSelectionChange = useCallback(({nodes:selectedNodes,edges:selectedEdges}:{nodes:BioNodeType[];edges:BioEdge[]}) => {
+    const ids=selectedNodes.map(node=>node.id)
+    setAlignmentNodeIds(current=>current.length===ids.length&&current.every((id,i)=>id===ids[i])?current:ids)
+    setSelectedNodeId(ids[0]);setSelectedEdgeId(selectedEdges[0]?.id)
   }, [])
 
   const onConnect = useCallback((connection: Connection) => {
@@ -603,11 +624,12 @@ function AppCanvas() {
         }
       }
       for (const cell of selectedItems.filter((node) => node.data.kind === 'cell')) nodes.filter((node) => node.parentId === cell.id).forEach((node) => nodeIds.add(node.id))
-      setNodes((current) => current.filter((node) => !nodeIds.has(node.id)).map((node) => selectedMembranes.some((membrane) => node.data.membraneAnchor?.membraneId === membrane.id) ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
-      setEdges((current) => current.filter((edge) => !nodeIds.has(edge.source) && !nodeIds.has(edge.target)))
+      const remaining=layoutSimpleCells(nodes.filter((node) => !nodeIds.has(node.id)).map((node) => selectedMembranes.some((membrane) => node.data.membraneAnchor?.membraneId === membrane.id) ? { ...node, data: { ...node.data, membraneAnchor: undefined } } : node))
+      setNodes(remaining)
+      setEdges((current) => pruneSimpleEdges(remaining,current))
       setNotice(`${nodeIds.size} object(s) deleted`)
     } else if (selectedEdgeId) {
-      setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId)); setNotice('Interaction deleted')
+      setEdges((current) => pruneSimpleEdges(nodes,current.filter((edge) => edge.id !== selectedEdgeId))); setNotice('Interaction deleted')
     }
     setSelectedNodeId(undefined); setSelectedEdgeId(undefined); setAlignmentNodeIds([]); setContextTarget(undefined)
   }, [alignmentNodeIds, nodes, selectedEdgeId, selectedNodeId])
@@ -753,8 +775,8 @@ function AppCanvas() {
     const handler = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       const typing = !!target?.closest('input,textarea,select,[contenteditable="true"]')
-      if (event.key === 'Escape') { setDraftMembrane(undefined); setDrawingTool('select'); setContextTarget(undefined); setNotice('Select mode'); return }
-      if (typing) return
+      if (event.key === 'Escape') { setSimpleRelation(undefined);setRelationSource(undefined);setDraftMembrane(undefined); setDrawingTool('select'); setContextTarget(undefined); setNotice('Select mode'); return }
+      if (typing || welcome) return
       const key = event.key.toLowerCase(); const command = event.ctrlKey || event.metaKey
       if (command && key === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return }
       if (command && key === 'y') { event.preventDefault(); redo(); return }
@@ -762,11 +784,12 @@ function AppCanvas() {
       if (command && key === 'v') { event.preventDefault(); pasteObjects(); return }
       if (command && key === 'd') { event.preventDefault(); duplicateSelected(); return }
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected(); return }
+      if(simple)return
       const shortcuts: Partial<Record<string, DrawingTool>> = { v: 'select', h: 'pan', m: 'freehand_membrane', c: 'place_cell', p: 'place_receptor', a: 'place_antibody', l: 'place_ligand', t: 'place_annotation' }
       if (shortcuts[key]) { event.preventDefault(); setDrawingTool(shortcuts[key]!); setNotice(`${shortcuts[key]!.replaceAll('_', ' ')} mode`) }
     }
     window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler)
-  }, [copySelected, deleteSelected, duplicateSelected, pasteObjects, redo, undo])
+  }, [copySelected, deleteSelected, duplicateSelected, pasteObjects, redo, undo, simple, welcome])
 
   const changeVisualizationProfile = useCallback((profile: VisualizationProfile) => {
     const scoped = applyVisualizationProfile(nodes, edges, profile)
@@ -806,6 +829,7 @@ function AppCanvas() {
 
   const handleNodeDragStop = useCallback((node: BioNodeType) => {
     setNodes((current) => {
+      if (node.data.simpleCell || current.some(n=>n.id===node.parentId&&n.data.simpleCell)) return layoutSimpleCells(current.map(n=>n.id===node.id?{...node,data:{...node.data,positionMode:'manual'}}:n))
       const dragged = { ...constrainNode(node, mode, current), data: { ...node.data, positionMode: 'manual' as const } }
       if (dragged.data.kind === 'membrane') {
         const next = current.map((item) => item.id === dragged.id ? dragged : item)
@@ -908,7 +932,7 @@ function AppCanvas() {
   const runLayout = useCallback(async () => {
     setIsLayingOut(true)
     try {
-      const laidOut = await autoLayout(nodes, edges)
+      const laidOut = nodes.some(n=>n.data.simpleCell) ? layoutSimpleCells(nodes, false) : await autoLayout(nodes, edges)
       setNodes(laidOut)
       requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 550 }))
       setNotice('Biology-aware ELK layout applied by compartment')
@@ -963,9 +987,12 @@ function AppCanvas() {
   }, [templateId, visualizationProfile])
 
   const generateFromMechanism = useCallback((parsed: ParsedMechanism) => {
-    if (!window.confirm('Generate a new mechanism scene? Current objects, literature links, review notes, and comments will be replaced.')) return
+    if (nodes.length && !window.confirm('Generate a new mechanism scene? Current objects, literature links, review notes, and comments will be replaced.')) return
     const generated = sceneFromMechanism(parsed)
-    const scoped = applyVisualizationProfile(generated.nodes, generated.edges, visualizationProfile)
+    const profile = simple ? {...defaultVisualizationProfile,detailLevel:4 as const} : visualizationProfile
+    const scoped = applyVisualizationProfile(generated.nodes, generated.edges, profile)
+    setVisualizationProfile(profile)
+    setSimplePanel(undefined)
     setNodes(scoped.nodes)
     setEdges(scoped.edges)
     setTemplateId(generated.templateId)
@@ -983,7 +1010,7 @@ function AppCanvas() {
     setShowMechanismComposer(false)
     setNotice(`Generated ${parsed.entities.length} entities and ${parsed.interactions.length} typed interactions`)
     requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.08, duration: 550 }))
-  }, [visualizationProfile])
+  }, [visualizationProfile, simple, nodes.length])
 
   const saveJson = useCallback(() => {
     downloadText(`bioscene-${templateId}.json`, JSON.stringify(currentScene, null, 2), 'application/json')
@@ -995,6 +1022,8 @@ function AppCanvas() {
       const parsed = parseSceneFile(JSON.parse(await file.text()))
       if (!parsed) throw new Error('Invalid scene schema')
       applySceneState(parsed)
+      setWelcome(false)
+      setSimplePanel(undefined)
       setNotice(`${file.name} restored`)
       requestAnimationFrame(() => instanceRef.current?.fitView({ padding: 0.12, duration: 450 }))
     } catch {
@@ -1002,27 +1031,41 @@ function AppCanvas() {
     }
   }, [applySceneState])
 
-  const exportFigure = useCallback(async (format: 'png' | 'svg' | 'pptx') => {
+  const exportFigure = useCallback(async (format: 'png' | 'svg' | 'pptx' | 'package') => {
     const target = flowRef.current?.querySelector('.react-flow__viewport') as HTMLElement | null
     if (!target) return
+    let restorePaint: (()=>void)|undefined
     try {
     setSelectedNodeId(undefined)
     setSelectedEdgeId(undefined)
-    const workspaceScene = visualizationProfile.sceneType === 'empty'
+    setNodes(items=>items.map(n=>({...n,selected:false})))
+    setEdges(items=>items.map(e=>({...e,selected:false})))
+    const workspaceScene = !simple && visualizationProfile.sceneType === 'empty'
     if (workspaceScene) await instanceRef.current?.fitBounds({ x: 0, y: 0, width: workspace.width, height: workspace.height }, { padding: 0, duration: 0 })
     else await instanceRef.current?.fitView({ padding: .14, duration: 0 })
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    assertVisibleBlocksForCapture(target, edges.filter(edge => edge.data?.interaction === 'BLOCK' && !edge.hidden && !instanceRef.current?.getNode(edge.source)?.hidden && !instanceRef.current?.getNode(edge.target)?.hidden).map(edge => edge.id))
     const presetSpec = exportSpecs[exportPreset]
     const spec = workspaceScene ? { ...presetSpec, width: Math.round(workspace.width), height: Math.round(workspace.height) } : presetSpec
     const background = workspaceScene ? workspaceBackground(workspace) : exportPreset === 'transparent' ? undefined : styleBackground[stylePreset]
     const attribution = assetAttribution(nodes)
     const filter = (element: HTMLElement) => element.dataset?.exportExclude !== 'true'
-    if (format === 'svg') {
-      const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height, filter })
+    const bounds=instanceRef.current?.getNodesBounds(nodes.filter(n=>!n.hidden))
+    const zoom=bounds?Math.min((spec.width-120)/Math.max(1,bounds.width),(spec.height-120)/Math.max(1,bounds.height)):1
+    const captureStyle=simple&&bounds?{transform:`translate(${(spec.width-bounds.width*zoom)/2-bounds.x*zoom}px, ${(spec.height-bounds.height*zoom)/2-bounds.y*zoom}px) scale(${zoom})`,transformOrigin:'0 0'}:undefined
+    restorePaint=inlineSvgPaintForCapture(target)
+    if (format === 'svg' || format === 'package') {
+      const rawSvg = await toSvg(target, { backgroundColor: background, cacheBust: true, width: spec.width, height: spec.height, filter, style:captureStyle })
       const dataUrl = addSvgCredit(rawSvg, attribution.compact, spec.width, spec.height)
-      const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.svg`; anchor.click()
+      if(format==='package') {
+        const zip = new JSZip()
+        zip.file('scene.svg',decodeURIComponent(dataUrl.slice(dataUrl.indexOf(',')+1)))
+        zip.file('scene.json',JSON.stringify(currentScene,null,2))
+        zip.file('scene_prompt.md',`# ${sceneTitle}\n\nBeautify this scientific blueprint. Preserve every molecule, label, compartment, connection and inhibition mark. Do not infer extra biology. Counts are visual representation counts, not biological copy numbers.\n\nObjects:\n${nodes.map(n=>`- ${n.data.label} (${n.data.kind}, ${n.data.compartment})`).join('\n')}\n\nRelationships:\n${edges.map(e=>`- ${blueprintRelationship(e,nodes,edges)}`).join('\n')}\n\n${assetAttribution(nodes).full}`)
+        const blob=await zip.generateAsync({type:'blob'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='bioscene-ai-blueprint.zip';a.click();window.setTimeout(()=>URL.revokeObjectURL(url),1000)
+      } else { const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.svg`; anchor.click() }
     } else {
-      const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true, filter })
+      const raw = await toPng(target, { backgroundColor: background, pixelRatio: 2, cacheBust: true, filter, ...(simple?{width:spec.width,height:spec.height,style:captureStyle}:{}) })
       const dataUrl = await fitDataUrl(raw, spec.width, spec.height, background, attribution.compact)
       if (format === 'png') {
         const anchor = document.createElement('a'); anchor.href = dataUrl; anchor.download = `bioscene-${templateId}-${exportPreset}.png`; anchor.click()
@@ -1040,7 +1083,8 @@ function AppCanvas() {
     if (attribution.full) downloadText(`bioscene-${templateId}-ATTRIBUTIONS.txt`, attribution.full, 'text/plain')
     setNotice(`${format.toUpperCase()} exported with ${exportPreset} preset`)
     } catch (error) { setNotice(`${format.toUpperCase()} export failed: ${error instanceof Error ? error.message : 'unknown error'}`) }
-  }, [exportPreset, nodes, sceneTitle, stylePreset, templateId, visualizationProfile.sceneType, workspace])
+    finally { restorePaint?.() }
+  }, [exportPreset, nodes, edges, currentScene, simple, sceneTitle, stylePreset, templateId, visualizationProfile.sceneType, workspace])
 
   const createSnapshot = useCallback(() => {
     const next: SceneRevision = { id: uid('revision'), label: `Revision ${revisions.length + 1}`, createdAt: new Date().toISOString(), scene: JSON.parse(JSON.stringify(currentScene)) as SceneFile }
@@ -1203,15 +1247,37 @@ function AppCanvas() {
     warnings: warnings.length,
   }), [edges, nodes, warnings.length])
 
+  function openSimpleBuilder(fresh:boolean) { setWelcome(false);setSimple(true);setSimplePanel('cell');setNewSimpleFigure(fresh);setSimpleRelation(undefined);setRelationSource(undefined) }
+  function generateSimple(drafts:CellDraft[]) {
+    if(newSimpleFigure&&nodes.length&&!window.confirm('Create a new MoA? Your current figure will be kept as a revision and in Undo.'))return
+    if(newSimpleFigure&&nodes.length)createSnapshot()
+    const generated=generateCells(drafts)
+    const all=newSimpleFigure?generated:layoutSimpleCells([...nodes,...generated])
+    setNodes(all);if(newSimpleFigure){setEdges([]);setMechanism(undefined);setLiterature([]);setCollaboration(emptyCollaboration());setReview({status:'draft',reviewers:[],notes:'',updatedAt:new Date().toISOString()});setViews([]);setActiveViewId(undefined);setSceneCreatedAt(new Date().toISOString())}
+    setMoleculeLibrary(items=>[...items,...drafts.flatMap(d=>d.proteins.map(p=>p.molecule)).filter((m,i,a)=>!items.some(x=>x.id===m.id)&&a.findIndex(x=>x.id===m.id)===i)])
+    setSceneTitle(drafts.map(d=>d.name).join(' + ')+' MoA');setVisualizationProfile({...defaultVisualizationProfile,detailLevel:4});setSimpleScope(all.filter(n=>n.data.kind==='cell').length>1?'Cell-Cell':'Cell');setSimplePanel(undefined);setSelectedNodeId(undefined);setSelectedEdgeId(undefined);setNotice('Cell ready. Add a drug or ligand, then choose a relationship.');window.setTimeout(()=>instanceRef.current?.fitView({padding:.15,duration:300}),80)
+  }
+  function connectSimple(source:string,targets:string[],relation:SimpleRelation,blockedEdgeId?:string) {
+    try {let next=nodes;const added:BioEdge[]=[];for(const target of targets){const result=simpleConnection(next,source,target,relation,blockedEdgeId);next=result.nodes;added.push(result.edge)}setNodes(next);setEdges(items=>[...items,...added]);setSimpleRelation(undefined);setRelationSource(undefined);setNotice(`${relation} relationship added`)}catch(error){setNotice(error instanceof Error?error.message:'Could not connect these molecules')}
+  }
+  function clickSimpleNode(id:string) {
+    if(!simpleRelation){selectObject(id);return}
+    if(!relationSource){setRelationSource(id);setNotice(`${simpleRelation}: choose the target molecule${simpleRelation==='Block'?' or interaction':''}.`)}else connectSimple(relationSource,[id],simpleRelation)
+  }
+  function switchEditor(nextSimple:boolean) {setSimple(nextSimple);setSimplePanel(undefined);setSimpleRelation(undefined);setRelationSource(undefined);setDrawingTool('select');setContextTarget(undefined);setShowMoleculeSetup(false);setShowSceneSettings(false);setShowAssetBrowser(false);setShowProductionPanel(false);setShowReviewPanel(false);setShowLiteraturePanel(false);setShowCollaborationPanel(false);setShowModulePanel(false);setShowWorkspaceSetup(false);window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}
+
   return (
-    <div className="app-shell" data-style={stylePreset}>
-      <header className="topbar">
+    <div className={`app-shell ${simple?'simple-mode':''} ${welcome?'welcome-mode':''}`} data-style={simple?'scientific-clean':stylePreset}>
+      <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => {const file=event.target.files?.[0];if(file)void loadJson(file);event.target.value=''}} />
+      {welcome&&<section className="simple-welcome"><div className="welcome-brand"><FlaskConical/> BioScene <small>ENGINE</small></div><span className="eyebrow">SIMPLE MoA</span><h1>What do you want to build?</h1><p>Turn your mechanism into a clear biological blueprint.</p><button className="primary-button welcome-primary" onClick={()=>openSimpleBuilder(true)}>Build a MoA <span>→</span></button><button onClick={()=>{setWelcome(false);setShowMechanismComposer(true)}}>Generate from Description</button><button onClick={()=>fileInput.current?.click()}>Open Existing</button><button onClick={()=>{setWelcome(false);switchEditor(false);createEmptyFigure()}}>Advanced / Blank Canvas</button>{autosavedScene&&<button className="continue-saved" onClick={()=>{setWelcome(false);window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}}>Continue saved figure</button>}<small>Cells → proteins → drug → relationship → export</small></section>}
+      {simple?<header className="simple-topbar"><strong>BioScene <small>Simple MoA</small></strong><button onClick={()=>openSimpleBuilder(true)}>New MoA</button><span className="simple-save-status" role="status">{autosaveStatus==='saved'?'Saved':'Saving…'}</span><button data-testid="undo" disabled={!undoStack.current.length} onClick={undo}>Undo</button><button data-testid="redo" disabled={!redoStack.current.length} onClick={redo}>Redo</button><button data-testid="save-json" onClick={saveJson}>Save</button><button onClick={()=>fileInput.current?.click()}>Load</button><div className="simple-export"><button className="primary-button" disabled={!nodes.length} onClick={()=>exportFigure(simpleExport)}>Export Blueprint</button><select aria-label="Export format" value={simpleExport} onChange={e=>setSimpleExport(e.target.value as typeof simpleExport)}><option value="svg">SVG</option><option value="png">PNG</option><option value="package">AI Beautification Package</option></select></div><button onClick={()=>switchEditor(false)}>Advanced</button></header>:<header className="topbar">
         <div className="brand">
           <span className="brand-mark"><FlaskConical size={20} /></span>
           <span><strong>BioScene</strong><small>ENGINE</small></span>
         </div>
         <div className="project-title"><span className="status-dot" /><span className="project-name" title={sceneTitle}>{sceneTitle}</span><small>v0.14 · Interactive editor</small></div>
         <div className="top-actions">
+          <button className="primary-button" onClick={()=>switchEditor(true)}>Simple Mode</button>
           <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'assets'} onClick={() => setMobilePanel((value) => value === 'assets' ? undefined : 'assets')}>Assets</button>
           <button className="ghost-button mobile-drawer-button" aria-expanded={mobilePanel === 'inspector'} onClick={() => setMobilePanel((value) => value === 'inspector' ? undefined : 'inspector')}>Inspector</button>
           <button className="ghost-button" data-testid="new-figure" data-help="새 그림의 Scene, Detail, Layout을 먼저 선택한 뒤 빈 캔버스·MoA 생성·기존 JSON 불러오기 중 시작 방식을 고릅니다." onClick={() => setShowNewFigure(true)}><Plus size={16}/> New figure</button>
@@ -1228,15 +1294,15 @@ function AppCanvas() {
           <button className={`ghost-button review-${review.status}`} data-help="현재 장면의 검수 상태(draft/in review/approved), 검토자와 과학 검토 메모를 저장합니다. 이 정보는 Scene JSON과 리뷰 ZIP에 포함됩니다." onClick={() => setShowReviewPanel(true)}><ClipboardCheck size={16} /> {review.status}</button>
           <button className="primary-button" onClick={() => exportFigure('png')}><Download size={16} /> Export PNG</button>
         </div>
-      </header>
+      </header>}
 
-      <EditorToolbar tool={drawingTool} continuous={continuousTool} onTool={(tool) => { setDrawingTool(tool); setDraftMembrane(undefined); setNotice(`${tool.replaceAll('_', ' ')} mode`) }} onContinuous={() => setContinuousTool((value) => !value)} onShortcuts={() => setShowShortcuts(true)} />
+      {simple?<nav className="simple-toolbar" aria-label="MoA tools"><button className="primary-button" onClick={()=>setSimplePanel(simplePanel==='drug'?undefined:'drug')}>+ Add Drug / Ligand</button>{(['Bind','Signal','Block','Indirect'] as const).map(r=><button key={r} aria-pressed={simpleRelation===r} onClick={()=>{setSimpleRelation(simpleRelation===r?undefined:r);setRelationSource(undefined);setNotice(`${r}: click a source molecule, then a target.`)}}>{r}</button>)}<button onClick={runLayout} disabled={isLayingOut}>Auto Layout</button><label>Simple<input aria-label="Visual detail" type="range" min="1" max="3" value={visualDetail} onChange={e=>setVisualDetail(Number(e.target.value))}/>Detailed</label></nav>:<EditorToolbar tool={drawingTool} continuous={continuousTool} onTool={(tool) => { setDrawingTool(tool); setDraftMembrane(undefined); setNotice(`${tool.replaceAll('_', ' ')} mode`) }} onContinuous={() => setContinuousTool((value) => !value)} onShortcuts={() => setShowShortcuts(true)} />}
 
       <div className="workspace">
         <button className={`mobile-panel-shade ${mobilePanel ? 'open' : ''}`} aria-label="Close side panel" onClick={() => setMobilePanel(undefined)} />
         <div className={`sidebar-shell ${mobilePanel === 'assets' ? 'open' : ''}`}>
           <button className="mobile-drawer-close" aria-label="Close assets panel" onClick={() => setMobilePanel(undefined)}>×</button>
-          <Sidebar onAdd={(kind) => { addBiologicalNode(kind); setMobilePanel(undefined) }} targetPanel={targetPanel} onBrowseAssets={() => { setShowAssetBrowser(true); setMobilePanel(undefined) }} onAddCallout={() => { addCallout(); setMobilePanel(undefined) }} onOpenModules={() => { setShowModulePanel(true); setMobilePanel(undefined) }} />
+          {simple?(simplePanel?<SimpleMoaPanel key={simplePanel} panel={simplePanel} library={moleculeLibrary} nodes={nodes} onGenerate={generateSimple} onDrug={m=>{setMoleculeLibrary(items=>[...items,m]);const result=addSimpleDrug(nodes,m);setNodes(result.nodes.map(n=>({...n,selected:n.id===result.id})));setSelectedNodeId(result.id);setSelectedEdgeId(undefined);setNotice(`${m.name} added. Choose a target connection when ready.`)}} onAdvanced={()=>{switchEditor(false);openMoleculeBuilder()}} onCancel={()=>setSimplePanel(undefined)}/>:<aside className="simple-panel"><h2>Your MoA</h2><p>{sceneTitle}</p><button onClick={()=>openSimpleBuilder(false)}>+ Add cell</button><label>Scene<select aria-label="Simple scene" value={simpleScope} onChange={e=>{setSimpleScope(e.target.value);if(e.target.value==='Cell-Cell')openSimpleBuilder(false);if(e.target.value==='Environment')setShowMechanismComposer(true)}}><option>Cell</option><option>Cell-Cell</option><option>Environment</option></select></label><small>Scene guides your next step; existing objects remain unchanged.</small><button onClick={()=>{const next=treatedComparison(nodes,edges);setNodes(next.nodes);setEdges(next.edges);setNotice('Treated copy created. Edit the copy to show treatment; biology was not inferred.');window.setTimeout(()=>instanceRef.current?.fitView({padding:.12}),80)}} disabled={!nodes.length}>Create Treated Comparison</button><details><summary>Examples</summary>{Object.values(sceneTemplates).map(t=><button key={t.id} onClick={()=>loadTemplate(t.id)}>{t.description}</button>)}</details><p className="simple-note">Choose Bind, Signal, Block or Indirect, then click source → target. Block can also target a relationship.</p></aside>):<Sidebar onAdd={(kind) => { addBiologicalNode(kind); setMobilePanel(undefined) }} targetPanel={targetPanel} onBrowseAssets={() => { setShowAssetBrowser(true); setMobilePanel(undefined) }} onAddCallout={() => { addCallout(); setMobilePanel(undefined) }} onOpenModules={() => { setShowModulePanel(true); setMobilePanel(undefined) }} />}
         </div>
         <main className={`canvas-wrap tool-${drawingTool}`} ref={flowRef} onPointerDown={startDrawing} onPointerMove={continueDrawing} onPointerUp={finishDrawing} onPointerCancel={() => setDraftMembrane(undefined)}>
           <CanvasDisplayProvider value={canvasDisplay}><ReactFlow<BioNodeType, BioEdge>
@@ -1244,34 +1310,36 @@ function AppCanvas() {
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
+            elevateEdgesOnSelect={!simple}
+            elevateNodesOnSelect={!simple}
             onInit={(instance) => { instanceRef.current = instance }}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={(event, node) => selectObject(node.id, 'node', event.shiftKey)}
-            onNodeDoubleClick={(_, node) => { selectObject(node.id); if (node.data.kind === 'membrane') membraneAction(node.id, 'edit'); else openMoleculeBuilder(node) }}
-            onNodeContextMenu={(event, node) => { event.preventDefault(); selectObject(node.id); setContextTarget({ id: node.id, kind: 'node', x: event.clientX, y: event.clientY }) }}
-            onEdgeClick={(_, edge) => selectObject(edge.id, 'edge')}
-            onEdgeContextMenu={(event, edge) => { event.preventDefault(); selectObject(edge.id, 'edge'); setContextTarget({ id: edge.id, kind: 'edge', x: event.clientX, y: event.clientY }) }}
-            onSelectionChange={({ nodes: selectedNodes, edges: selectedEdges }) => { const ids = selectedNodes.map((node) => node.id); setAlignmentNodeIds(ids); setSelectedNodeId(ids[0]); setSelectedEdgeId(selectedEdges[0]?.id) }}
+            onNodeClick={(event, node) => simple?clickSimpleNode(node.id):selectObject(node.id, 'node', event.shiftKey)}
+            onNodeDoubleClick={(_, node) => { if(simple)return;selectObject(node.id); if (node.data.kind === 'membrane') membraneAction(node.id, 'edit'); else openMoleculeBuilder(node) }}
+            onNodeContextMenu={(event, node) => { event.preventDefault(); if(simple)return;selectObject(node.id); setContextTarget({ id: node.id, kind: 'node', x: event.clientX, y: event.clientY }) }}
+            onEdgeClick={(_, edge) => simple&&simpleRelation==='Block'&&relationSource?connectSimple(relationSource,[edge.target],'Block',edge.id):selectObject(edge.id, 'edge')}
+            onEdgeContextMenu={(event, edge) => { event.preventDefault();if(simple)return; selectObject(edge.id, 'edge'); setContextTarget({ id: edge.id, kind: 'edge', x: event.clientX, y: event.clientY }) }}
+            onSelectionChange={handleSelectionChange}
             onPaneClick={handlePaneClick}
             onNodeDragStop={(_, node) => handleNodeDragStop(node)}
             panOnDrag={drawingTool === 'pan' || drawingTool === 'select'}
             selectionOnDrag={false}
             nodesDraggable={drawingTool === 'select'}
-            nodesConnectable={drawingTool === 'select'}
+            nodesConnectable={!simple && drawingTool === 'select'}
             elementsSelectable={drawingTool === 'select'}
             snapToGrid={workspace.snapToGrid}
             snapGrid={[workspace.gridSize, workspace.gridSize]}
             fitView
             fitViewOptions={{ padding: 0.12 }}
-            minZoom={0.45}
+            minZoom={simple?0.1:0.45}
             maxZoom={1.8}
             selectionKeyCode="Shift"
             multiSelectionKeyCode="Shift"
             deleteKeyCode={null}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#cbd8d1" />
+            {!simple&&<><Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#cbd8d1" />
             <ViewportPortal>
               <div className="figure-workspace-frame" style={{ width: workspace.width, height: workspace.height, backgroundColor: workspaceBackground(workspace) ?? 'transparent' }}>
                 {workspace.showGrid && <div className="workspace-grid" style={{ backgroundSize: `${workspace.gridSize}px ${workspace.gridSize}px` }} data-export-exclude="true" />}
@@ -1290,7 +1358,6 @@ function AppCanvas() {
               <button className="tool-button" data-help="현재 개체와 연결을 ELK가 다시 정렬합니다. Biological Constraint가 켜져 있으면 세포 구획과 부모-자식 관계를 유지한 채 겹침을 줄입니다." onClick={runLayout} disabled={isLayingOut}><Sparkles size={15} /> {isLayingOut ? 'Laying out…' : 'Auto layout'}</button>
               <button className="tool-button" data-help="현재 Production 출력 프리셋의 크기와 배경을 적용해 벡터 SVG를 저장합니다. 사용한 외부 에셋이 있으면 크레딧도 함께 반영됩니다." onClick={() => exportFigure('svg')}><FileJson size={15} /> SVG</button>
               <button className="tool-button" data-help="BioScene에서 저장한 Scene JSON을 불러옵니다. 현재 장면·문헌·검토 메모가 바뀔 수 있으며, 구버전 파일은 최신 스키마로 안전하게 변환합니다." onClick={() => fileInput.current?.click()}><Upload size={15} /> Load</button>
-              <input ref={fileInput} hidden type="file" accept="application/json,.json" onChange={(event) => event.target.files?.[0] && loadJson(event.target.files[0])} />
               <button className="tool-button" data-testid="workspace-settings" data-help="최종 그림으로 내보낼 Workspace 크기, 배경, 안전 여백과 가이드를 변경합니다. 기존 객체 좌표는 유지됩니다." onClick={() => setShowWorkspaceSetup(true)}>Workspace</button>
               <button className="tool-button" data-help="현재 Workspace 전체가 화면에 들어오도록 확대/축소합니다." onClick={fitWorkspace}>Fit workspace</button>
               <div className="canvas-view-switch" data-export-exclude="true" data-help="CLEAN은 최종 그림처럼 분자 형태만 표시하고, DETAIL은 이름·포트·구획 등 편집 정보를 표시합니다."><button className={canvasViewMode==='clean'?'active':''} onClick={()=>setCanvasMode('clean')}>CLEAN</button><button className={canvasViewMode==='detail'?'active':''} onClick={()=>setCanvasMode('detail')}>DETAIL</button></div>
@@ -1311,16 +1378,17 @@ function AppCanvas() {
             </Panel>
             <Panel position="top-right" className="scene-badge template-picker" data-help="왼쪽은 현재 biology를 보는 Scene scope이고 오른쪽은 시작용 biology template입니다. Scene 변경은 개체를 삭제하지 않지만 template 변경은 확인 후 전체 장면을 교체합니다."><LayoutTemplate size={14}/><select aria-label="Scene type" value={visualizationProfile.sceneType} onChange={(event) => changeVisualizationProfile({ ...visualizationProfile, sceneType: event.target.value as VisualizationProfile['sceneType'] })}>{Object.entries(sceneTypeLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><select aria-label="Mechanism template" value={templateId} onChange={(event) => loadTemplate(event.target.value as SceneTemplateId)}>{Object.values(sceneTemplates).map((template) => <option key={template.id} value={template.id}>{template.description}</option>)}</select></Panel>
             {warnings.length > 0 && <Panel position="top-center" className="biology-warning" title={warnings.join('\n')}><strong>Biology warning</strong><span>{warnings[0]}</span>{warnings.length > 1 && <small>+{warnings.length - 1} more</small>}</Panel>}
-            <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span>{notice}</span><div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div></Panel>
-            <Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>{drawingTool === 'select' ? 'Drag blank canvas to move view · Shift+drag to box-select' : drawingTool === 'pan' ? 'Drag canvas to move view · ESC to exit' : continuousTool ? 'Continuous creation · ESC to exit' : 'Create once · ESC to cancel'}</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>
+            </>}
+            <Panel position="bottom-center" className="notice-bar" title={warnings.join('\n')}><span role="status">{notice}</span>{!simple&&<div><b>{counts.objects}</b> objects <b>{counts.interactions}</b> interactions <b className={counts.warnings ? 'warning-count' : 'ok-count'}>{counts.warnings}</b> warnings</div>}</Panel>
+            {!simple&&<Panel position="bottom-left" className="active-tool-status" data-export-exclude="true"><strong>{drawingTool === 'select' ? 'Select Mode' : drawingTool === 'pan' ? 'Pan Mode' : `${drawingTool.replaceAll('_', ' ')} Mode`}</strong><span>Drag canvas to move view · ESC to exit</span><i className={autosaveStatus}/>{autosaveStatus === 'saving' ? 'Saving…' : 'Saved'}</Panel>}
           </ReactFlow></CanvasDisplayProvider>
-          <LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>
+          {!simple&&<LayersPanel nodes={nodes} edges={edges} selectedIds={[...alignmentNodeIds, ...(selectedEdgeId ? [selectedEdgeId] : [])]} open={layersOpen} onOpen={() => setLayersOpen((value) => !value)} onSelect={selectObject} onVisibility={toggleObjectVisibility} onLock={toggleObjectLock}/>}
           {draftMembrane && <svg className="membrane-drawing-preview" aria-hidden="true"><path d={membranePathD(drawingTool === 'straight_membrane' && draftMembrane.screen.length > 1 ? [draftMembrane.screen[0], draftMembrane.screen.at(-1)!] : draftMembrane.screen)} /></svg>}
-          {visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
+          {!simple&&visualizationProfile.sceneType === 'empty' && nodes.length === 0 && !showWorkspaceSetup && <BlankQuickStart tool={drawingTool} onTool={setDrawingTool} onAdd={addBiologicalNode} onCallout={addCallout} onWorkspace={() => setShowWorkspaceSetup(true)} />}
         </main>
         <div className={`inspector-shell ${mobilePanel === 'inspector' ? 'open' : ''}`}>
           <button className="mobile-drawer-close" aria-label="Close inspector panel" onClick={() => setMobilePanel(undefined)}>×</button>
-          <Inspector
+          {simple?<SimpleInspector nodes={nodes} edges={edges} selected={selectedNode} edge={selectedEdge} onSelect={clickSimpleNode} onChange={updateSelectedNode} onCount={(count,density)=>{if(!selectedNode)return;const next=changeRepresentation(nodes,selectedNode.id,count,density);setNodes(next);setEdges(items=>pruneSimpleEdges(next,items))}} onDelete={deleteSelected} onConnect={connectSimple}/>:<Inspector
             selectedNode={selectedNode}
             selectedEdgeId={selectedEdgeId}
             selectedInteraction={selectedEdge?.data?.interaction}
@@ -1333,7 +1401,7 @@ function AppCanvas() {
             onDetachAsset={detachAsset}
             onEditStructure={() => openMoleculeBuilder(selectedNode)}
             constraintMode={mode}
-          />
+          />}
         </div>
       </div>
       {contextTarget && <ObjectContextMenu target={contextTarget} isMembrane={nodes.find((node) => node.id === contextTarget.id)?.data.kind === 'membrane'} locked={!!nodes.find((node) => node.id === contextTarget.id)?.data.locked} onAction={handleContextAction}/>}
@@ -1349,7 +1417,7 @@ function AppCanvas() {
       {showNewFigure && <NewFigureDialog profile={visualizationProfile} onProfile={setVisualizationProfile} onEmpty={createEmptyFigure} onMoA={() => { setShowNewFigure(false); setShowMechanismComposer(true) }} onLoad={() => { setShowNewFigure(false); fileInput.current?.click() }} onClose={() => setShowNewFigure(false)}/>}
       {showMoleculeSetup && <MoleculeSetupPanel molecules={moleculeLibrary} customFunctions={customFunctions} initialMoleculeId={setupMoleculeId} canApply={!!selectedNode && !['cell','annotation','signal','transcription'].includes(selectedNode.data.kind)} instanceCounts={moleculeInstanceCounts} onChange={setMoleculeLibrary} onCustomFunctions={setCustomFunctions} onSave={saveMoleculeDefinition} onDelete={deleteMoleculeDefinition} onAdd={addMoleculeToScene} onClose={() => setShowMoleculeSetup(false)}/>}
       {showWorkspaceSetup && <WorkspaceSetupPanel value={workspace} hasContent={nodes.length > 0} onSave={saveWorkspace} onFitContent={fitWorkspaceToContent} onClose={() => setShowWorkspaceSetup(false)} />}
-      <ContextHelp />
+      {!simple&&<ContextHelp />}
     </div>
   )
 }
@@ -1357,4 +1425,3 @@ function AppCanvas() {
 export default function App() {
   return <ErrorBoundary><ReactFlowProvider><AppCanvas /></ReactFlowProvider></ErrorBoundary>
 }
-

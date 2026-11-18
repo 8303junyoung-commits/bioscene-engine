@@ -1,4 +1,5 @@
-import { Handle, NodeResizer, NodeToolbar, Position, type NodeProps } from '@xyflow/react'
+import { Handle, NodeResizer, NodeToolbar, Position, useUpdateNodeInternals, type NodeProps } from '@xyflow/react'
+import { useLayoutEffect } from 'react'
 import { Copy, Image, Pencil, Trash2 } from 'lucide-react'
 import type { BioNode as BioNodeType, PortDefinition } from '../types'
 import { stateLabel } from '../biology'
@@ -18,14 +19,19 @@ const action = (id: string, name: string) => window.dispatchEvent(new CustomEven
 
 export function BioNode({ id, data, selected }: NodeProps<BioNodeType>) {
   const display = useCanvasDisplay()
+  const updateNodeInternals = useUpdateNodeInternals()
+  const portGeometry = data.ports.map(port => `${port.id}:${port.role}:${port.side}`).join('|')
+  // Adding a port does not resize the node. Refresh React Flow's handle cache
+  // after DOM commit, or it drops the relationship before invoking its renderer.
+  useLayoutEffect(() => { updateNodeInternals(id) }, [id, portGeometry, updateNodeInternals])
   const definition = display.molecules.find((item) => item.id === data.moleculeId)
-  const showNames = display.overlays.names || data.showName === true
-  const tooltip = [data.label, data.subtitle, data.state ? `State: ${stateLabel(data)}` : '', data.compartment].filter(Boolean).join('\n')
+  const showNames = display.simple ? data.showName !== false : display.overlays.names || data.showName === true
+  const tooltip = display.simple?data.label:[data.label, data.subtitle, data.state ? `State: ${stateLabel(data)}` : '', data.compartment].filter(Boolean).join('\n')
 
   return (
-    <div title={tooltip} className={`bio-node bio-${data.kind} view-${display.mode} ${display.overlays.ports ? 'show-ports' : ''} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${data.membraneAnchor ? 'is-membrane-anchored' : ''} ${selected ? 'is-selected' : ''}`} style={data.membraneAnchor ? { transform:`rotate(${data.membraneAnchor.angle}deg)` } : undefined}>
-      <NodeResizer isVisible={selected && !data.locked} minWidth={90} minHeight={46} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
-      <NodeToolbar isVisible={selected} className="selection-mini-toolbar" data-export-exclude="true">
+    <div data-visual-detail={display.visualDetail} title={tooltip} className={`bio-node bio-${data.kind} view-${display.mode} ${display.overlays.ports ? 'show-ports' : ''} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${data.membraneAnchor ? 'is-membrane-anchored' : ''} ${selected ? 'is-selected' : ''}`} style={data.membraneAnchor ? { transform:`rotate(${data.membraneAnchor.angle}deg)` } : undefined}>
+      <NodeResizer isVisible={!display.simple && selected && !data.locked} minWidth={90} minHeight={46} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
+      <NodeToolbar isVisible={!display.simple && selected} className="selection-mini-toolbar" data-export-exclude="true">
         {['receptor','ligand','antibody'].includes(data.kind) && <button onClick={() => action(id, 'edit')}><Pencil size={13}/> Structure</button>}
         <button onClick={() => action(id, 'asset')}><Image size={13}/> Asset</button><button onClick={() => action(id, 'duplicate')}><Copy size={13}/> Duplicate</button><button className="danger" onClick={() => action(id, 'delete')}><Trash2 size={13}/> Delete</button>
       </NodeToolbar>

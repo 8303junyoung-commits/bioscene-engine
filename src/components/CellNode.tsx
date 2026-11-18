@@ -10,14 +10,14 @@ export function CellNode({ id, data, selected }: NodeProps<BioNode>) {
   const showCompartments = display.overlays.compartments && data.showCompartmentLabels !== false
   const panelLabel = data.panelId === 'untreated' ? 'UNTREATED' : data.panelId === 'treated' ? 'TREATED' : data.panelId === 'tissue' ? 'TISSUE' : 'MECHANISM'
   return (
-    <div className={`cell-node scene-${data.sceneType ?? 'full_signaling'} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${selected ? 'is-selected' : ''}`}>
-      <NodeResizer isVisible={selected && !data.locked} minWidth={420} minHeight={300} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
-      <NodeToolbar isVisible={selected} className="selection-mini-toolbar" data-export-exclude="true"><button onClick={() => action(id, 'duplicate')}><Copy size={13}/> Duplicate</button><button className="danger" onClick={() => action(id, 'delete')}><Trash2 size={13}/> Delete</button></NodeToolbar>
-      {display.overlays.names && <span className={`panel-label panel-${data.panelId ?? 'single'}`}>{panelLabel}</span>}
+    <div className={`cell-node ${data.simpleCell?'simple-cell':''} scene-${data.sceneType ?? 'full_signaling'} ${data.provenance === 'inferred' ? 'is-inferred' : ''} ${selected ? 'is-selected' : ''}`} data-visual-detail={display.visualDetail}>
+      <NodeResizer isVisible={!display.simple && selected && !data.locked} minWidth={420} minHeight={300} lineClassName="selection-resize-line" handleClassName="selection-resize-handle" />
+      <NodeToolbar isVisible={!display.simple && selected} className="selection-mini-toolbar" data-export-exclude="true"><button onClick={() => action(id, 'duplicate')}><Copy size={13}/> Duplicate</button><button className="danger" onClick={() => action(id, 'delete')}><Trash2 size={13}/> Delete</button></NodeToolbar>
+      {!display.simple&&display.overlays.names && <span className={`panel-label panel-${data.panelId ?? 'single'}`}>{panelLabel}</span>}
       {display.overlays.names && <div className="cell-label">
         <span className="cell-dot" />
         <span>{data.label}</span>
-        <small>matched biological container</small>
+        {!display.simple&&<small>matched biological container</small>}
       </div>}
       {!['intracellular', 'environment'].includes(data.sceneType ?? '') && <div className="zone zone-extracellular"><span>{showCompartments ? 'EXTRACELLULAR' : ''}</span></div>}
       {!['intracellular', 'environment'].includes(data.sceneType ?? '') && <div className="zone zone-membrane"><span>{showCompartments ? 'PLASMA MEMBRANE' : ''}</span></div>}
